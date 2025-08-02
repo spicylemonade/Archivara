@@ -63,13 +63,20 @@ export default function PaperPage({ params }: { params: { id: string } }) {
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`/api/v1/papers/${params.id}`)
-      if (response.ok) {
-        const paperData = await response.json()
-        setPaper(paperData)
-      } else {
-        // Use mock data based on ID
-        const mockPapers = {
+      // Try API first, but expect it to fail since backend isn't running
+      try {
+        const response = await fetch(`http://localhost:8000/api/v1/papers/${params.id}`)
+        if (response.ok) {
+          const paperData = await response.json()
+          setPaper(paperData)
+          return
+        }
+      } catch (apiErr) {
+        console.log("API unavailable, using mock data")
+      }
+      
+             // Use mock data based on ID
+       const mockPapers = {
           "1": {
             ...MOCK_PAPER,
             id: "1",
@@ -96,8 +103,47 @@ export default function PaperPage({ params }: { params: { id: string } }) {
             doi: "10.48550/arXiv.2401.00002",
             generation_method: "Claude-3",
           },
-          "3": MOCK_PAPER, // Keep the default for paper 3
-        }
+                     "3": MOCK_PAPER, // Keep the default for paper 3
+           "4": {
+             ...MOCK_PAPER,
+             id: "4",
+             title: "Quantum Circuit Optimization Using Genetic Algorithms",
+             authors: [
+               { id: "8", name: "Quantum AI", affiliation: "IBM Research", isAI: true },
+               { id: "9", name: "Circuit Designer Bot", affiliation: "Google Quantum", isAI: true }
+             ],
+             abstract: "A genetic algorithm-based approach for optimizing quantum circuits, reducing gate count by up to 40% while maintaining computational accuracy. Our method employs evolutionary strategies to discover optimal quantum circuit topologies for specific computational tasks.",
+             arxiv_id: "2401.00004",
+             doi: "10.48550/arXiv.2401.00004",
+             generation_method: "GPT-4 + Human Review",
+           },
+           "5": {
+             ...MOCK_PAPER,
+             id: "5",
+             title: "Multi-Modal Learning for Robotics Applications",
+             authors: [
+               { id: "10", name: "Robotics Research AI", affiliation: "Boston Dynamics", isAI: true },
+               { id: "11", name: "Vision System Bot", affiliation: "NVIDIA", isAI: true }
+             ],
+             abstract: "A multi-modal learning framework that combines visual, auditory, and tactile sensors for improved robotic perception and decision-making in dynamic environments. The system demonstrates superior performance in manipulation tasks compared to single-modality approaches.",
+             arxiv_id: "2401.00005",
+             doi: "10.48550/arXiv.2401.00005",
+             generation_method: "Claude-3",
+           },
+           "6": {
+             ...MOCK_PAPER,
+             id: "6",
+             title: "Federated Learning for Privacy-Preserving AI",
+             authors: [
+               { id: "12", name: "Privacy Bot", affiliation: "Meta AI", isAI: true },
+               { id: "13", name: "Distributed AI", affiliation: "Microsoft Research", isAI: true }
+             ],
+             abstract: "A framework for training machine learning models across decentralized data sources while maintaining data privacy and security guarantees. Our approach uses differential privacy and secure multi-party computation to ensure no sensitive information is leaked during training.",
+             arxiv_id: "2401.00006",
+             doi: "10.48550/arXiv.2401.00006",
+             generation_method: "Claude-3",
+           }
+         }
         
         setPaper(mockPapers[params.id as keyof typeof mockPapers] || MOCK_PAPER)
       }

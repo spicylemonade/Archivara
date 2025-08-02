@@ -16,9 +16,9 @@ export function FaviconUpdater() {
     
     const updateFavicon = () => {
       try {
-        const isDark = document.documentElement.classList.contains('dark')
-        const faviconUrl = isDark ? '/favicon-white.png' : '/favicon-black.png'
-        const appleTouchUrl = isDark ? '/logo-white.png' : '/logo-black.png'
+        // Force white favicon for now since it's more visible
+        const faviconUrl = '/favicon-white.png'
+        const appleTouchUrl = '/logo-white.png'
         
         // Update existing favicon or create new one (32x32)
         let faviconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement

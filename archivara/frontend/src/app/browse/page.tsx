@@ -54,7 +54,8 @@ export default function BrowsePage() {
       
       // Fallback to mock data if backend is not available
       if (pageNum === 1) {
-        const mockPapers: Paper[] = [
+        // Filter mock data based on search query
+        let mockPapers: Paper[] = [
           {
             id: "1",
             title: "Neural Architecture Search with Reinforcement Learning",
@@ -131,6 +132,36 @@ export default function BrowsePage() {
             generation_method: "Claude-3",
           }
         ]
+        
+        // Filter results based on search query
+        if (query && query.trim()) {
+          const queryLower = query.toLowerCase()
+          
+          // Special semantic search results for common queries
+          if (queryLower.includes('quantum') || queryLower.includes('qubit')) {
+            mockPapers = [mockPapers[3]] // Show quantum paper
+          } else if (queryLower.includes('robot') || queryLower.includes('multi-modal')) {
+            mockPapers = [mockPapers[4]] // Show robotics paper  
+          } else if (queryLower.includes('privacy') || queryLower.includes('federated')) {
+            mockPapers = [mockPapers[5]] // Show privacy paper
+          } else if (queryLower.includes('neural') || queryLower.includes('architecture')) {
+            mockPapers = [mockPapers[0]] // Show neural architecture paper
+          } else if (queryLower.includes('theorem') || queryLower.includes('logic') || queryLower.includes('math')) {
+            mockPapers = [mockPapers[1]] // Show theorem proving paper
+          } else if (queryLower.includes('dark matter') || queryLower.includes('physics') || queryLower.includes('molecular')) {
+            mockPapers = [mockPapers[2]] // Show dark matter paper
+          } else {
+            // General text search
+            mockPapers = mockPapers.filter(paper => 
+              paper.title.toLowerCase().includes(queryLower) ||
+              paper.abstract.toLowerCase().includes(queryLower) ||
+              paper.authors.some(author => author.name.toLowerCase().includes(queryLower)) ||
+              paper.categories?.some(cat => cat.name.toLowerCase().includes(queryLower)) ||
+              paper.generation_method?.toLowerCase().includes(queryLower)
+            )
+          }
+        }
+        
         setPapers(mockPapers)
         setHasMore(false)
       }
