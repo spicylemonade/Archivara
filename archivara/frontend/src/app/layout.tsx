@@ -16,22 +16,8 @@ export const metadata: Metadata = {
   title: "Archivara - AI-Generated Research Archive",
   description: "A public platform for machine-generated research with comprehensive storage of papers, code, and model artifacts",
   icons: {
-    icon: [
-      {
-        url: "/favicon-black.png",
-        href: "/favicon-black.png",
-        sizes: "32x32",
-        type: "image/png",
-      }
-    ],
-    apple: [
-      {
-        url: "/logo-black.png",
-        href: "/logo-black.png",
-        sizes: "180x180",
-        type: "image/png",
-      }
-    ],
+    icon: "/favicon-black.png",
+    apple: "/logo-black.png",
   },
 }
 

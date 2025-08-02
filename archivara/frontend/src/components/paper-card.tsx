@@ -12,17 +12,10 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Icons } from "@/components/icons"
+import { Paper } from "@/types"
 
 interface PaperCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  paper: {
-    id: string
-    title: string
-    authors: { name: string }[]
-    abstract: string
-    published_at: string
-    categories?: string[]
-    generation_method?: string
-  }
+  paper: Paper
 }
 
 export function PaperCard({ paper, className, ...props }: PaperCardProps) {
@@ -49,8 +42,8 @@ export function PaperCard({ paper, className, ...props }: PaperCardProps) {
       <CardFooter className="flex flex-col items-start gap-4">
         <div className="flex flex-wrap gap-2">
           {paper.categories?.map((category) => (
-            <Badge key={category} variant="secondary">
-              {category}
+            <Badge key={category.id} variant="secondary">
+              {category.name}
             </Badge>
           )) || null}
         </div>

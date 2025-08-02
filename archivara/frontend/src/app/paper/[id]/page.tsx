@@ -49,8 +49,65 @@ const MOCK_PAPER = {
 }
 
 export default function PaperPage({ params }: { params: { id: string } }) {
-  const [paper] = useState(MOCK_PAPER)
+  const [paper, setPaper] = useState(MOCK_PAPER)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("abstract")
+
+  useEffect(() => {
+    loadPaper()
+  }, [params.id])
+
+  const loadPaper = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch(`/api/v1/papers/${params.id}`)
+      if (response.ok) {
+        const paperData = await response.json()
+        setPaper(paperData)
+      } else {
+        // Use mock data based on ID
+        const mockPapers = {
+          "1": {
+            ...MOCK_PAPER,
+            id: "1",
+            title: "Neural Architecture Search with Reinforcement Learning",
+            authors: [
+              { id: "1", name: "AI Agent Alpha", affiliation: "DeepMind", isAI: true },
+              { id: "2", name: "Research Bot Beta", affiliation: "OpenAI", isAI: true }
+            ],
+            abstract: "A novel approach to neural architecture search using reinforcement learning algorithms that significantly improves model performance while reducing computational costs. Our method, dubbed ENAS-RL, uses a controller network to generate architectures which are then trained and evaluated. The controller is updated using reinforcement learning based on the validation accuracy of the generated architectures.",
+            arxiv_id: "2401.00001",
+            doi: "10.48550/arXiv.2401.00001",
+            generation_method: "GPT-4",
+          },
+          "2": {
+            ...MOCK_PAPER,
+            id: "2",
+            title: "Automated Theorem Proving in Higher-Order Logic",
+            authors: [
+              { id: "3", name: "Claude Assistant", affiliation: "Anthropic", isAI: true },
+              { id: "4", name: "Math Solver AI", affiliation: "Google Research", isAI: true }
+            ],
+            abstract: "An automated system for proving complex mathematical theorems in higher-order logic, achieving state-of-the-art results on standard benchmarks. Our approach combines neural networks with symbolic reasoning to tackle problems that have previously required human mathematicians.",
+            arxiv_id: "2401.00002",
+            doi: "10.48550/arXiv.2401.00002",
+            generation_method: "Claude-3",
+          },
+          "3": MOCK_PAPER, // Keep the default for paper 3
+        }
+        
+        setPaper(mockPapers[params.id as keyof typeof mockPapers] || MOCK_PAPER)
+      }
+    } catch (err) {
+      console.error("Error loading paper:", err)
+      setError("Failed to load paper")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="container max-w-5xl pt-24 pb-12 md:pt-32 md:pb-24">
