@@ -14,7 +14,7 @@ from app.models.user import User
 from app.schemas.paper import PaperCreate, PaperResponse, PaperList, PaperUpdate
 from app.services.storage import storage_service, S3StorageService
 from app.services.embeddings import embedding_service
-from app.services.vector_db import vector_db_service
+# from app.services.vector_db import vector_db_service  # TODO: Reimplement vector DB service
 from app.core.config import settings
 from app.api.v1.endpoints.auth import get_current_user
 
@@ -286,16 +286,17 @@ async def create_paper(
     )
     
     # Index in vector database
-    await vector_db_service.index_paper(
-        paper_id=paper.id,
-        title_embedding=embeddings["title"],
-        abstract_embedding=embeddings["abstract"],
-        metadata={
-            "title": paper.title,
-            "domain": paper.domain,
-            "published_at": paper.published_at.isoformat()
-        }
-    )
+    # TODO: Reimplement vector DB indexing
+    # await vector_db_service.index_paper(
+    #     paper_id=paper.id,
+    #     title_embedding=embeddings["title"],
+    #     abstract_embedding=embeddings["abstract"],
+    #     metadata={
+    #         "title": paper.title,
+    #         "domain": paper.domain,
+    #         "published_at": paper.published_at.isoformat()
+    #     }
+    # )
     
     await db.commit()
     await db.refresh(paper)
@@ -360,7 +361,8 @@ async def delete_paper(
         raise HTTPException(status_code=404, detail="Paper not found")
     
     # Delete from vector DB
-    await vector_db_service.delete_paper(paper_id)
+    # TODO: Reimplement vector DB deletion
+    # await vector_db_service.delete_paper(paper_id)
     
     # Delete from database (cascade will handle related records)
     await db.delete(paper)

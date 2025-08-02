@@ -18,8 +18,18 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/favicon.png",
-        href: "/favicon.png",
+        url: "/favicon-black.png",
+        href: "/favicon-black.png",
+        sizes: "32x32",
+        type: "image/png",
+      }
+    ],
+    apple: [
+      {
+        url: "/logo-black.png",
+        href: "/logo-black.png",
+        sizes: "180x180",
+        type: "image/png",
       }
     ],
   },

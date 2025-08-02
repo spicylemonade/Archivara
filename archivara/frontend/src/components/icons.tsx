@@ -26,16 +26,67 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const Icons = {
-  logo: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
+const ThemeAwareLogo = (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+  const [isDark, setIsDark] = React.useState(false);
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    // Set client-side flag to prevent hydration mismatch
+    setIsClient(true);
+    
+    // Function to check if dark mode is active
+    const checkDarkMode = () => {
+      try {
+        const isSystemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const currentTheme = localStorage.getItem("theme");
+        const isDarkMode = currentTheme === "dark" || (!currentTheme && isSystemDark) || document.documentElement.classList.contains('dark');
+        setIsDark(isDarkMode);
+      } catch (error) {
+        // Handle any errors gracefully
+        console.warn('Failed to check dark mode:', error);
+      }
+    };
+
+    // Initial check
+    checkDarkMode();
+
+    // Listen for theme changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    // Listen for localStorage changes
+    window.addEventListener('storage', checkDarkMode);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('storage', checkDarkMode);
+    };
+  }, []);
+
+  // During SSR or before client hydration, show a neutral state
+  if (!isClient) {
+    return (
+      <img 
+        {...props} 
+        src="/logo-black.png"
+        alt="Archivara logo"
+        className={cn("h-10 w-10", props.className)}
+      />
+    );
+  }
+
+  return (
     <img 
       {...props} 
-      src="/favicon.png" 
+      src={isDark ? "/logo-white.png" : "/logo-black.png"}
       alt="Archivara logo"
-      className={cn("h-8 w-8", props.className)}
-      style={{ filter: 'var(--logo-filter, none)' }}
+      className={cn("h-10 w-10", props.className)}
     />
-  ),
+  );
+};
+
+export const Icons = {
+  logo: ThemeAwareLogo,
   chevronDown: ChevronDown,
   chevronUp: ChevronUp,
   search: Search,

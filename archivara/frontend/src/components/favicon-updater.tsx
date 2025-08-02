@@ -1,24 +1,52 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 export function FaviconUpdater() {
-  useEffect(() => {
-    const updateFavicon = () => {
-      const isDark = document.documentElement.classList.contains('dark')
-      const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement
-      
-      if (link) {
-        // The icon is white by default, so in light mode we need to invert it
-        if (!isDark) {
-          link.style.filter = 'invert(1)'
-        } else {
-          link.style.filter = 'none'
-        }
-      }
+  const [isClient, setIsClient] = useState(false)
 
-      // Also update the logo filter CSS variable
-      document.documentElement.style.setProperty('--logo-filter', isDark ? 'none' : 'invert(1)')
+  useEffect(() => {
+    // Mark as client-side to prevent SSR issues
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    // Skip if not client-side or document is not ready
+    if (!isClient || typeof document === 'undefined') return;
+    
+    const updateFavicon = () => {
+      try {
+        const isDark = document.documentElement.classList.contains('dark')
+        const faviconUrl = isDark ? '/favicon-white.png' : '/favicon-black.png'
+        const appleTouchUrl = isDark ? '/logo-white.png' : '/logo-black.png'
+        
+        // Update existing favicon or create new one (32x32)
+        let faviconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement
+        if (!faviconLink) {
+          faviconLink = document.createElement('link')
+          faviconLink.rel = 'icon'
+          faviconLink.type = 'image/png'
+          faviconLink.sizes = '32x32'
+          document.head.appendChild(faviconLink)
+        }
+        faviconLink.href = faviconUrl
+        
+        // Update document title to force favicon refresh
+        document.title = document.title
+        
+        // Update existing apple-touch-icon or create new one (larger size for mobile)
+        let appleTouchLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement
+        if (!appleTouchLink) {
+          appleTouchLink = document.createElement('link')
+          appleTouchLink.rel = 'apple-touch-icon'
+          appleTouchLink.sizes = '180x180'
+          document.head.appendChild(appleTouchLink)
+        }
+        appleTouchLink.href = appleTouchUrl
+      } catch (error) {
+        // Silently handle any DOM manipulation errors
+        console.warn('Failed to update favicon:', error)
+      }
     }
 
     // Initial update
@@ -28,15 +56,25 @@ export function FaviconUpdater() {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === "class") {
-          updateFavicon()
+          // Add a small delay to prevent rapid fire updates
+          setTimeout(updateFavicon, 10)
         }
       })
     })
 
-    observer.observe(document.documentElement, { attributes: true })
+    if (document.documentElement) {
+      observer.observe(document.documentElement, { 
+        attributes: true, 
+        attributeFilter: ['class'] 
+      })
+    }
 
-    return () => observer.disconnect()
-  }, [])
+    return () => {
+      if (observer) {
+        observer.disconnect()
+      }
+    }
+  }, [isClient])
 
   return null
 } 

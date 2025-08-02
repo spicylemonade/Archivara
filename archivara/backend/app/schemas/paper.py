@@ -144,6 +144,7 @@ class PaperResponse(PaperInDB):
             arxiv_id=paper.arxiv_id,
             doi=paper.doi,
             published_at=paper.published_at,
+            created_at=paper.created_at,
             updated_at=paper.updated_at,
             pdf_url=paper.pdf_url,
             pdf_hash=paper.pdf_hash,

@@ -24,8 +24,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Archivara API", version=settings.APP_VERSION)
     
     # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        logger.warning(f"Database connection failed: {e}. Starting without database.")
+        # Continue startup even if database fails
     
     yield
     
