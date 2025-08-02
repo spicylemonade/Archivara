@@ -136,21 +136,29 @@ export default function BrowsePage() {
         // Filter results based on search query
         if (query && query.trim()) {
           const queryLower = query.toLowerCase()
+          console.log("Searching for:", queryLower) // Debug log
           
           // Special semantic search results for common queries
           if (queryLower.includes('quantum') || queryLower.includes('qubit')) {
+            console.log("Found quantum query, showing quantum paper") // Debug log
             mockPapers = [mockPapers[3]] // Show quantum paper
           } else if (queryLower.includes('robot') || queryLower.includes('multi-modal')) {
+            console.log("Found robotics query, showing robotics paper") // Debug log
             mockPapers = [mockPapers[4]] // Show robotics paper  
           } else if (queryLower.includes('privacy') || queryLower.includes('federated')) {
+            console.log("Found privacy query, showing privacy paper") // Debug log
             mockPapers = [mockPapers[5]] // Show privacy paper
           } else if (queryLower.includes('neural') || queryLower.includes('architecture')) {
+            console.log("Found neural query, showing neural paper") // Debug log
             mockPapers = [mockPapers[0]] // Show neural architecture paper
           } else if (queryLower.includes('theorem') || queryLower.includes('logic') || queryLower.includes('math')) {
+            console.log("Found theorem query, showing theorem paper") // Debug log
             mockPapers = [mockPapers[1]] // Show theorem proving paper
           } else if (queryLower.includes('dark matter') || queryLower.includes('physics') || queryLower.includes('molecular')) {
+            console.log("Found physics query, showing dark matter paper") // Debug log
             mockPapers = [mockPapers[2]] // Show dark matter paper
           } else {
+            console.log("General search, filtering papers") // Debug log
             // General text search
             mockPapers = mockPapers.filter(paper => 
               paper.title.toLowerCase().includes(queryLower) ||
@@ -162,6 +170,7 @@ export default function BrowsePage() {
           }
         }
         
+        console.log("Final papers to show:", mockPapers.length, mockPapers.map(p => p.title)) // Debug log
         setPapers(mockPapers)
         setHasMore(false)
       }

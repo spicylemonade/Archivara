@@ -63,6 +63,8 @@ export default function PaperPage({ params }: { params: { id: string } }) {
       setLoading(true)
       setError(null)
       
+      console.log("Loading paper with ID:", params.id)  // Debug log
+      
       // Try API first, but expect it to fail since backend isn't running
       try {
         const response = await fetch(`http://localhost:8000/api/v1/papers/${params.id}`)
@@ -72,7 +74,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
           return
         }
       } catch (apiErr) {
-        console.log("API unavailable, using mock data")
+        console.log("API unavailable, using mock data for ID:", params.id)
       }
       
       // Use mock data based on ID
@@ -103,7 +105,11 @@ export default function PaperPage({ params }: { params: { id: string } }) {
           doi: "10.48550/arXiv.2401.00002",
           generation_method: "Claude-3",
         },
-        "3": MOCK_PAPER, // Keep the default for paper 3
+        "3": {
+          ...MOCK_PAPER,
+          id: "3", 
+          // Keep the original dark matter paper for ID 3
+        },
         "4": {
           ...MOCK_PAPER,
           id: "4",
@@ -145,7 +151,9 @@ export default function PaperPage({ params }: { params: { id: string } }) {
         }
       }
       
-      setPaper(mockPapers[params.id as keyof typeof mockPapers] || MOCK_PAPER)
+      const selectedPaper = mockPapers[params.id as keyof typeof mockPapers] || MOCK_PAPER
+      console.log("Selected paper:", selectedPaper.title) // Debug log
+      setPaper(selectedPaper)
     } catch (err) {
       console.error("Error loading paper:", err)
       setError("Failed to load paper")
