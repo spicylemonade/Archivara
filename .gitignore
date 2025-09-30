@@ -14,8 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+**/backend/lib/
+**/backend/lib64/
+# Note: frontend/src/lib/ should NOT be ignored
 parts/
 sdist/
 var/
