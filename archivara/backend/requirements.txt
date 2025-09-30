@@ -45,7 +45,7 @@ hdbscan==0.8.40
 torch==2.5.0
 
 # Document Processing
-pypdf==5.1.0
+pypdf==4.3.1
 grobid-client-python==0.0.9
 pyyaml==6.0.2
 safetensors==0.5.0
