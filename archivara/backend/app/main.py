@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 import structlog
-from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.config import settings
 from app.api.v1.api import api_router
@@ -61,10 +60,11 @@ app.add_middleware(
     allowed_hosts=["*"] if settings.DEBUG else ["archivara.io", "*.archivara.io", "localhost"]
 )
 
-# Prometheus metrics
-if settings.PROMETHEUS_ENABLED:
-    instrumentator = Instrumentator()
-    instrumentator.instrument(app).expose(app)
+# Prometheus metrics (disabled - instrumentator not installed)
+# if settings.PROMETHEUS_ENABLED:
+#     from prometheus_fastapi_instrumentator import Instrumentator
+#     instrumentator = Instrumentator()
+#     instrumentator.instrument(app).expose(app)
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
