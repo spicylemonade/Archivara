@@ -33,6 +33,13 @@ export default function RegisterPage() {
     setIsLoading(true)
     setError(null)
 
+    // Validate .edu email
+    if (!formData.email.endsWith('.edu')) {
+      setError("Only .edu email addresses are allowed")
+      setIsLoading(false)
+      return
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match")
       setIsLoading(false)
@@ -42,7 +49,7 @@ export default function RegisterPage() {
     try {
       const { confirmPassword, ...registerData } = formData
       await api.post("/auth/register", registerData)
-      
+
       // On success, redirect to login page with a success message
       router.push("/login?registered=true")
     } catch (err: any) {
@@ -153,7 +160,7 @@ export default function RegisterPage() {
               </Button>
               <div className="text-sm text-center text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/login" className="text-primary hover:underline">
+                <Link href="/login" className="text-accent hover:underline">
                   Sign in
                 </Link>
               </div>

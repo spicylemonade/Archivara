@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 class UserBase(BaseModel):
@@ -9,6 +9,14 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     affiliation: Optional[str] = None
+
+    @field_validator('email')
+    @classmethod
+    def validate_edu_email(cls, v: str) -> str:
+        """Validate that email ends with .edu"""
+        if not v.endswith('.edu'):
+            raise ValueError('Only .edu email addresses are allowed')
+        return v
 
 
 class UserCreate(UserBase):

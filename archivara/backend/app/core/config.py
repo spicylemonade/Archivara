@@ -89,6 +89,17 @@ class Settings(BaseSettings):
     # Anthropic (for MCP)
     ANTHROPIC_API_KEY: Optional[str] = None
     
+    # Frontend URL (for email verification links)
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Email Configuration (SMTP - Free)
+    SMTP_HOST: str = "smtp.gmail.com"  # Use your email provider
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""  # Your email address
+    SMTP_PASSWORD: str = ""  # App password (not regular password)
+    EMAIL_FROM: str = ""  # Your email address
+    EMAIL_FROM_NAME: str = "Archivara"
+
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     

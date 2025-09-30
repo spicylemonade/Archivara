@@ -9,91 +9,18 @@ import { siteConfig } from "@/config/site"
 import { SiteFooter } from "@/components/site-footer"
 import Link from "next/link"
 
-// Mock Data
-const MOCK_PAPERS = [
-  {
-    id: "1",
-    title: "Neural Architecture Search with Reinforcement Learning",
-    authors: [{ name: "AI Agent Alpha" }, { name: "Research Bot Beta" }],
-    abstract: "A novel approach to neural architecture search using reinforcement learning algorithms that significantly improves model performance while reducing computational costs...",
-    published_at: "2024-01-15T10:00:00Z",
-    tags: ["machine-learning", "optimization"],
-    generation_method: "GPT-4",
-  },
-  {
-    id: "2",
-    title: "Automated Theorem Proving in Higher-Order Logic",
-    authors: [{ name: "Claude Assistant" }, { name: "Math Solver AI" }],
-    abstract: "An automated system for proving complex mathematical theorems in higher-order logic, achieving state-of-the-art results on standard benchmarks...",
-    published_at: "2024-01-14T15:30:00Z",
-    tags: ["mathematics", "logic", "automated-reasoning"],
-    generation_method: "Claude-3",
-  },
-  {
-    id: "3",
-    title: "Quantum Circuit Optimization Using Genetic Algorithms",
-    authors: [{ name: "Quantum AI" }, { name: "Circuit Designer Bot" }],
-    abstract: "A genetic algorithm-based approach for optimizing quantum circuits, reducing gate count by up to 40% while maintaining computational accuracy...",
-    published_at: "2024-01-13T09:15:00Z",
-    tags: ["quantum-computing", "optimization"],
-    generation_method: "GPT-4 + Human Review",
-  },
-]
+// No mock data - will be loaded from API
 
 export default function HomePage() {
-  const [isDark, setIsDark] = React.useState(false);
-
-  React.useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === "class") {
-          const isDarkNow = document.documentElement.classList.contains('dark');
-          setIsDark(isDarkNow);
-        }
-      });
-    });
-
-    observer.observe(document.documentElement, { attributes: true });
-
-    // Initial check
-    setIsDark(document.documentElement.classList.contains('dark'));
-
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <>
-      <section className="snap-section relative -mt-24 pt-24">
-        <div className="absolute inset-0 -z-10 top-0 bottom-0">
-          <div 
-            className="fixed inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500"
-            style={{ 
-              backgroundImage: "url('/science-background.png')",
-              opacity: isDark ? 0 : 1,
-              height: '100vh',
-              width: '100vw'
-            }}
-          />
-          <div 
-            className="fixed inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500"
-            style={{ 
-              backgroundImage: "url('/science-background-dark.png')",
-              opacity: isDark ? 1 : 0,
-              height: '100vh',
-              width: '100vw'
-            }}
-          />
-          <div 
-            className="fixed inset-0 bg-background/60 backdrop-blur-[1px] dark:bg-background/80"
-            style={{ height: '100vh', width: '100vw' }}
-          />
-        </div>
-
+      <section className="snap-section relative -mt-24 pt-24 bg-background">
         <div className="flex-1 flex items-center justify-center">
           <div className="container relative flex max-w-[64rem] flex-col items-center gap-6 text-center">
             <Link
               href={siteConfig.links.twitter}
-              className="rounded-2xl bg-white/80 dark:bg-card/80 backdrop-blur-sm px-4 py-1.5 text-sm font-medium shadow-soft"
+              className="rounded-full bg-card border border-border px-4 py-1.5 text-sm font-medium hover:bg-accent/10 transition-colors"
               target="_blank"
             >
               Follow along on Twitter
@@ -101,7 +28,7 @@ export default function HomePage() {
             <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold">
               An archive for AI-generated research
             </h1>
-            <p className="max-w-[42rem] leading-normal text-foreground/80 sm:text-xl sm:leading-8">
+            <p className="max-w-[42rem] leading-normal text-muted-foreground sm:text-xl sm:leading-8">
               Explore machine-generated research papers, models, and tools.
               Access comprehensive metadata and reproducibility information.
             </p>
@@ -110,7 +37,7 @@ export default function HomePage() {
               <Input
                 type="search"
                 placeholder="Search papers, authors, or topics..."
-                className="w-full rounded-2xl bg-white/90 dark:bg-card/90 backdrop-blur-sm pl-12 pr-4 py-4 h-14 shadow-soft border-0 relative"
+                className="w-full rounded-full pl-12 pr-4 py-4 h-14 border-border focus-visible:ring-accent"
               />
             </div>
           </div>
@@ -128,13 +55,11 @@ export default function HomePage() {
                 Discover the most recent contributions to the archive.
               </p>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-              {MOCK_PAPERS.map((paper) => (
-                <PaperCard key={paper.id} paper={paper} />
-              ))}
-            </div>
-            <div className="text-center">
-              <Button variant="outline" size="lg">View all papers</Button>
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No papers available yet</p>
+              <Link href="/submit">
+                <Button variant="premium" size="lg">Submit the First Paper</Button>
+              </Link>
             </div>
           </div>
         </div>

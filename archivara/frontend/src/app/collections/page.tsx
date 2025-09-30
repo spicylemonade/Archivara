@@ -14,7 +14,7 @@ const SUBJECT_COLLECTIONS = [
     description: "All physics research including astrophysics, condensed matter, high energy physics, and more",
     icon: Icons.cpu,
     categories: Object.keys(subjects.physics.categories).length,
-    papers: 4532
+    papers: 0
   },
   {
     id: "mathematics",
@@ -22,7 +22,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Pure and applied mathematics including algebra, geometry, analysis, and topology",
     icon: Icons.brain,
     categories: Object.keys(subjects.mathematics.categories).length,
-    papers: 2341
+    papers: 0
   },
   {
     id: "computer-science",
@@ -30,7 +30,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Computing research including AI, machine learning, systems, and theory",
     icon: Icons.code,
     categories: Object.keys(subjects.computerScience.categories).length,
-    papers: 3876
+    papers: 0
   },
   {
     id: "quantitative-biology",
@@ -38,7 +38,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Computational biology, genomics, and bioinformatics research",
     icon: Icons.experiment,
     categories: Object.keys(subjects.quantitativeBiology.categories).length,
-    papers: 987
+    papers: 0
   },
   {
     id: "quantitative-finance",
@@ -46,7 +46,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Financial mathematics, risk management, and computational finance",
     icon: Icons.library,
     categories: Object.keys(subjects.quantitativeFinance.categories).length,
-    papers: 543
+    papers: 0
   },
   {
     id: "statistics",
@@ -54,7 +54,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Statistical theory, methodology, and applications",
     icon: Icons.gitBranch,
     categories: Object.keys(subjects.statistics.categories).length,
-    papers: 765
+    papers: 0
   },
   {
     id: "electrical-engineering",
@@ -62,7 +62,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Signal processing, control systems, and electrical engineering",
     icon: Icons.network,
     categories: Object.keys(subjects.electricalEngineering.categories).length,
-    papers: 432
+    papers: 0
   },
   {
     id: "economics",
@@ -70,7 +70,7 @@ const SUBJECT_COLLECTIONS = [
     description: "Economic theory, econometrics, and applied economics",
     icon: Icons.library,
     categories: Object.keys(subjects.economics.categories).length,
-    papers: 321
+    papers: 0
   }
 ]
 
@@ -80,7 +80,7 @@ const CURATED_COLLECTIONS = [
     id: "llm-advances",
     title: "Large Language Model Advances",
     description: "Latest breakthroughs in LLM research and applications",
-    papers: 234,
+    papers: 0,
     updated: "2024-01-15",
     tags: ["nlp", "transformers", "scaling"],
     icon: Icons.brain,
@@ -90,7 +90,7 @@ const CURATED_COLLECTIONS = [
     id: "dark-matter-ml",
     title: "ML for Dark Matter Detection",
     description: "Machine learning approaches to dark matter physics",
-    papers: 89,
+    papers: 0,
     updated: "2024-01-14",
     tags: ["physics", "machine-learning", "dark-matter"],
     icon: Icons.experiment,
@@ -100,7 +100,7 @@ const CURATED_COLLECTIONS = [
     id: "quantum-algorithms",
     title: "Quantum Computing Algorithms",
     description: "Novel algorithms for quantum computers",
-    papers: 156,
+    papers: 0,
     updated: "2024-01-13",
     tags: ["quantum", "algorithms", "optimization"],
     icon: Icons.cpu,
@@ -110,7 +110,7 @@ const CURATED_COLLECTIONS = [
     id: "ai-safety",
     title: "AI Safety & Alignment",
     description: "Research on safe and aligned AI systems",
-    papers: 203,
+    papers: 0,
     updated: "2024-01-12",
     tags: ["ai-safety", "alignment", "ethics"],
     icon: Icons.bot,
@@ -141,7 +141,7 @@ export default function CollectionsPage() {
                     <Card className="h-full hover:shadow-lg transition-all hover:-translate-y-1 bg-card dark:bg-card cursor-pointer">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between mb-2">
-                          <Icon className="h-8 w-8 text-primary" />
+                          <Icon className="h-8 w-8 text-accent" />
                           <Badge variant="secondary" className="text-xs">
                             {subject.papers.toLocaleString()} papers
                           </Badge>
@@ -179,7 +179,7 @@ export default function CollectionsPage() {
                     <Card className="h-full hover:shadow-lg transition-all hover:-translate-y-1 bg-card dark:bg-card cursor-pointer">
                       <CardHeader>
                         <div className="flex items-start justify-between">
-                          <Icon className="h-8 w-8 text-primary" />
+                          <Icon className="h-8 w-8 text-accent" />
                           <Badge variant="secondary">{collection.papers} papers</Badge>
                         </div>
                         <CardTitle className="mt-4">{collection.title}</CardTitle>
@@ -211,7 +211,7 @@ export default function CollectionsPage() {
         <div className="text-center">
           <p className="text-muted-foreground">
             Want to create your own collection?{" "}
-            <Link href="/submit" className="text-primary hover:underline">
+            <Link href="/submit" className="text-accent hover:underline">
               Submit your curation
             </Link>
           </p>

@@ -17,10 +17,14 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     affiliation = Column(String)
-    
+
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_superuser = Column(Boolean, default=False)
-    
+
+    # Email verification
+    verification_token = Column(String, nullable=True)
+    verification_token_expires = Column(DateTime, nullable=True)
+
     # Relationships
     submitted_papers = relationship("Paper", back_populates="submitter") 

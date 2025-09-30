@@ -94,7 +94,7 @@ export default function AuthorPage({ params }: { params: { id: string } }) {
               <p>{author.affiliation}</p>
               {author.email && (
                 <p>
-                  <a href={`mailto:${author.email}`} className="text-primary hover:underline">
+                  <a href={`mailto:${author.email}`} className="text-accent hover:underline">
                     {author.email}
                   </a>
                 </p>
@@ -102,11 +102,11 @@ export default function AuthorPage({ params }: { params: { id: string } }) {
               {author.orcid && (
                 <p>
                   ORCID:{" "}
-                  <a 
+                  <a
                     href={`https://orcid.org/${author.orcid}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline"
+                    className="text-accent hover:underline"
                   >
                     {author.orcid}
                   </a>
@@ -130,8 +130,8 @@ export default function AuthorPage({ params }: { params: { id: string } }) {
               <button
                 onClick={() => setActiveTab("papers")}
                 className={`pb-2 text-sm font-medium transition-colors ${
-                  activeTab === "papers" 
-                    ? "border-b-2 border-primary text-foreground" 
+                  activeTab === "papers"
+                    ? "border-b-2 border-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -140,8 +140,8 @@ export default function AuthorPage({ params }: { params: { id: string } }) {
               <button
                 onClick={() => setActiveTab("stats")}
                 className={`pb-2 text-sm font-medium transition-colors ${
-                  activeTab === "stats" 
-                    ? "border-b-2 border-primary text-foreground" 
+                  activeTab === "stats"
+                    ? "border-b-2 border-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -150,8 +150,8 @@ export default function AuthorPage({ params }: { params: { id: string } }) {
               <button
                 onClick={() => setActiveTab("network")}
                 className={`pb-2 text-sm font-medium transition-colors ${
-                  activeTab === "network" 
-                    ? "border-b-2 border-primary text-foreground" 
+                  activeTab === "network"
+                    ? "border-b-2 border-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -232,9 +232,9 @@ export default function AuthorPage({ params }: { params: { id: string } }) {
                     <div className="space-y-3">
                       {author.collaborators.map((collaborator) => (
                         <div key={collaborator.id} className="flex justify-between items-center">
-                          <Link 
+                          <Link
                             href={`/author/${collaborator.id}`}
-                            className="text-primary hover:underline"
+                            className="text-accent hover:underline"
                           >
                             {collaborator.name}
                           </Link>

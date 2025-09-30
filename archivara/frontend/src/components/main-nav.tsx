@@ -14,7 +14,7 @@ export function MainNav() {
   return (
     <div className="mr-4 hidden md:flex">
       <Link href="/" className="mr-6 flex items-center space-x-2">
-        <Icons.logo className="h-8 w-8 text-primary-600" />
+        <Icons.logo className="h-8 w-8 text-accent" />
         <span className="hidden font-bold sm:inline-block">
           {siteConfig.name}
         </span>
@@ -23,8 +23,8 @@ export function MainNav() {
         <Link
           href="/browse"
           className={cn(
-            "transition-colors hover:text-primary-600",
-            pathname === "/browse" ? "text-surface-900" : "text-surface-600"
+            "transition-colors hover:text-accent",
+            pathname === "/browse" ? "text-foreground" : "text-muted-foreground"
           )}
         >
           Browse
@@ -32,10 +32,10 @@ export function MainNav() {
         <Link
           href="/search"
           className={cn(
-            "transition-colors hover:text-primary-600",
+            "transition-colors hover:text-accent",
             pathname?.startsWith("/search")
-              ? "text-surface-900"
-              : "text-surface-600"
+              ? "text-foreground"
+              : "text-muted-foreground"
           )}
         >
           Search
@@ -43,10 +43,10 @@ export function MainNav() {
         <Link
           href="/collections"
           className={cn(
-            "transition-colors hover:text-primary-600",
+            "transition-colors hover:text-accent",
             pathname?.startsWith("/collections")
-              ? "text-surface-900"
-              : "text-surface-600"
+              ? "text-foreground"
+              : "text-muted-foreground"
           )}
         >
           Collections
@@ -54,7 +54,7 @@ export function MainNav() {
         <Link
           href={siteConfig.links.github}
           className={cn(
-            "hidden text-surface-600 transition-colors hover:text-primary-600 lg:block"
+            "hidden text-muted-foreground transition-colors hover:text-accent lg:block"
           )}
         >
           GitHub

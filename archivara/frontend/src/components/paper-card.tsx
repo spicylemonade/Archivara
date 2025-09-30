@@ -21,12 +21,12 @@ interface PaperCardProps extends React.HTMLAttributes<HTMLDivElement> {
 export function PaperCard({ paper, className, ...props }: PaperCardProps) {
   return (
     <Card
-      className={cn("flex flex-col overflow-hidden hover:shadow-lg transition-shadow dark:bg-card", className)}
+      className={cn("flex flex-col overflow-hidden border hover:border-accent/50 transition-all hover:shadow-md", className)}
       {...props}
     >
       <CardHeader>
         <CardTitle className="line-clamp-2">
-          <Link href={`/paper/${paper.id}`} className="hover:text-primary transition-colors">
+          <Link href={`/paper/${paper.id}`} className="hover:text-accent transition-colors">
             {paper.title}
           </Link>
         </CardTitle>

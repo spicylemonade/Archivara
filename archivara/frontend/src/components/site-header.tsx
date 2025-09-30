@@ -20,8 +20,8 @@ export function SiteHeader() {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 pt-4 pb-2 bg-transparent">
       <div className="container">
-        <header className="rounded-2xl border border-border bg-background/80 dark:bg-card/80 backdrop-blur-lg shadow-soft">
-          <div className="flex h-16 items-center px-6">
+        <header className="rounded-full border border-border bg-background/95 backdrop-blur-md shadow-sm">
+          <div className="flex h-14 items-center px-6">
             <MainNav />
             <div className="flex flex-1 items-center justify-end space-x-4">
               <nav className="flex items-center space-x-2">

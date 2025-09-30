@@ -166,7 +166,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
     <div className="container max-w-5xl pt-24 pb-12 md:pt-32 md:pb-24">
       <Link
         href="/browse"
-        className="inline-flex items-center text-primary hover:underline text-sm mb-8"
+        className="inline-flex items-center text-accent hover:underline text-sm mb-8"
       >
         <Icons.arrowLeft className="mr-1 h-4 w-4" />
         Back to browse
@@ -196,7 +196,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
                 <span key={author.id} className="flex items-center gap-1">
                   <Link
                     href={`/author/${author.id}`}
-                    className="text-primary hover:underline"
+                    className="text-accent hover:underline"
                   >
                     {author.name}
                   </Link>
@@ -239,8 +239,8 @@ export default function PaperPage({ params }: { params: { id: string } }) {
               <button
                 onClick={() => setActiveTab("abstract")}
                 className={`pb-3 text-sm font-medium transition-colors ${
-                  activeTab === "abstract" 
-                    ? "border-b-2 border-primary text-foreground" 
+                  activeTab === "abstract"
+                    ? "border-b-2 border-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -249,8 +249,8 @@ export default function PaperPage({ params }: { params: { id: string } }) {
               <button
                 onClick={() => setActiveTab("references")}
                 className={`pb-3 text-sm font-medium transition-colors ${
-                  activeTab === "references" 
-                    ? "border-b-2 border-primary text-foreground" 
+                  activeTab === "references"
+                    ? "border-b-2 border-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -259,8 +259,8 @@ export default function PaperPage({ params }: { params: { id: string } }) {
               <button
                 onClick={() => setActiveTab("code")}
                 className={`pb-3 text-sm font-medium transition-colors ${
-                  activeTab === "code" 
-                    ? "border-b-2 border-primary text-foreground" 
+                  activeTab === "code"
+                    ? "border-b-2 border-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -286,11 +286,11 @@ export default function PaperPage({ params }: { params: { id: string } }) {
                   <CardContent>
                     <div className="space-y-3">
                       {paper.references.map((ref) => (
-                        <Link 
+                        <Link
                           key={ref.title}
                           href={ref.url}
                           target="_blank"
-                          className="text-primary hover:underline flex items-center gap-2"
+                          className="text-accent hover:underline flex items-center gap-2"
                         >
                           <Icons.externalLink className="h-4 w-4" />
                           {ref.title}
