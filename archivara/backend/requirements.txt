@@ -37,12 +37,11 @@ cohere==5.9.4
 mcp==1.12.1
 anthropic==0.40.0
 
-# ML & Data Processing
+# ML & Data Processing (minimal for Railway deployment)
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.5.2
-hdbscan==0.8.40
-torch==2.5.0
+# torch==2.5.0  # Removed to reduce build size - add back if needed for ML inference
 
 # Document Processing
 pypdf==4.3.1
