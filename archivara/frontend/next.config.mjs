@@ -8,6 +8,24 @@ const nextConfig = {
     // Don't block production builds on TypeScript errors
     ignoreBuildErrors: true,
   },
+  // Allow Railway domains
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          }
+        ],
+      },
+    ]
+  },
+  // Disable host check for Railway
+  experimental: {
+    allowedOrigins: ['*'],
+  },
 };
 
 export default nextConfig;
