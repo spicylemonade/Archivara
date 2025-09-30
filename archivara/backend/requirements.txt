@@ -31,7 +31,7 @@ langchain==0.2.16
 langchain-community==0.2.16
 transformers==4.44.2
 sentence-transformers==3.1.1
-cohere==5.9.5
+cohere==5.9.4
 
 # MCP Support
 mcp==1.12.1
