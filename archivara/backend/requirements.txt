@@ -22,15 +22,15 @@ celery[redis]==5.4.0
 redis==5.2.0
 flower==2.0.1
 
-# Search & RAG
+# Search & RAG (minimal for Railway - removed heavy ML deps)
 elasticsearch==8.15.0
-llama-index==0.11.20
-llama-index-vector-stores-qdrant==0.3.3
-llama-index-embeddings-huggingface==0.3.1
-langchain==0.2.16
-langchain-community==0.2.16
-transformers==4.44.2
-sentence-transformers==3.1.1
+# llama-index==0.11.20  # Removed - requires torch
+# llama-index-vector-stores-qdrant==0.3.3
+# llama-index-embeddings-huggingface==0.3.1
+# langchain==0.2.16
+# langchain-community==0.2.16
+# transformers==4.44.2  # Removed - requires torch
+# sentence-transformers==3.1.1  # Removed - requires torch
 cohere==5.9.4
 
 # MCP Support
