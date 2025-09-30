@@ -24,14 +24,14 @@ flower==2.0.1
 
 # Search & RAG
 elasticsearch==8.15.0
-llama-index==0.12.10
-llama-index-vector-stores-qdrant==0.4.0
-llama-index-embeddings-huggingface==0.4.0
-langchain==0.3.0
-langchain-community==0.3.0
-transformers==4.46.0
-sentence-transformers==3.3.0
-cohere==5.11.0
+llama-index==0.11.20
+llama-index-vector-stores-qdrant==0.3.3
+llama-index-embeddings-huggingface==0.3.1
+langchain==0.2.16
+langchain-community==0.2.16
+transformers==4.44.2
+sentence-transformers==3.1.1
+cohere==5.9.5
 
 # MCP Support
 mcp==1.12.1
