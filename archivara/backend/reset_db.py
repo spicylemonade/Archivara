@@ -2,6 +2,7 @@
 import asyncio
 import os
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
 from app.db.base_class import Base
 
 async def reset_database():
@@ -24,6 +25,11 @@ async def reset_database():
         async with engine.begin() as conn:
             print("Dropping all tables...")
             await conn.run_sync(Base.metadata.drop_all)
+
+            # Also drop alembic_version table so migrations run from scratch
+            print("Dropping alembic_version table...")
+            await conn.execute(text("DROP TABLE IF EXISTS alembic_version CASCADE"))
+
             print("All tables dropped successfully")
 
         await engine.dispose()
