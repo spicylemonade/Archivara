@@ -60,6 +60,8 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.19
 authlib==1.3.2
+itsdangerous==2.2.0
+resend==2.6.0
 
 # Monitoring & Logging
 opentelemetry-api==1.29.0
