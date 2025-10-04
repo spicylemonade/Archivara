@@ -179,7 +179,7 @@ class SubmissionAttempt(Base):
     paper_id = Column(String, ForeignKey("papers.id"), nullable=True)
     status = Column(String, nullable=False)  # 'accepted', 'rejected'
     rejection_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=func.now(), index=True)
+    # Note: created_at and updated_at are inherited from Base
 
     # Relationships
     user = relationship("User", foreign_keys=[user_id]) 
