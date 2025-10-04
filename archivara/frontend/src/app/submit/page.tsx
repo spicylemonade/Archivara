@@ -15,6 +15,7 @@ interface Author {
   email?: string
   affiliation?: string
   isAI?: boolean
+  author_id?: string  // For linked accounts
 }
 
 export default function SubmitPage() {
@@ -22,11 +23,14 @@ export default function SubmitPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [authorSearchResults, setAuthorSearchResults] = useState<any[]>([])
+  const [searchingAuthor, setSearchingAuthor] = useState(false)
+
   const [formData, setFormData] = useState({
     title: "",
     abstract: "",
-    authors: [{ name: "", email: "", affiliation: "", isAI: false }] as Author[],
+    authors: [] as Author[],  // Will be populated with current user
     categories: [] as string[],
     ai_tools: "",
     generation_method: "",
@@ -37,14 +41,34 @@ export default function SubmitPage() {
   })
 
   useEffect(() => {
-    // Check if user is authenticated
+    // Check if user is authenticated and load their info
     const token = localStorage.getItem("token")
     if (!token) {
       router.push("/login")
     } else {
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`
+      loadCurrentUser()
     }
   }, [router])
+
+  const loadCurrentUser = async () => {
+    try {
+      const response = await api.get("/auth/me")
+      setCurrentUser(response.data)
+      // Set first author as current user
+      setFormData(prev => ({
+        ...prev,
+        authors: [{
+          name: response.data.name || response.data.email,
+          email: response.data.email,
+          affiliation: response.data.affiliation || "",
+          isAI: false
+        }]
+      }))
+    } catch (err) {
+      console.error("Failed to load user:", err)
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -62,13 +86,46 @@ export default function SubmitPage() {
   const addAuthor = () => {
     setFormData({
       ...formData,
-      authors: [...formData.authors, { name: "", email: "", affiliation: "", isAI: false }],
+      authors: [...formData.authors, { name: "", isAI: false }],
     })
   }
 
   const removeAuthor = (index: number) => {
+    // Don't allow removing the first author (submitter)
+    if (index === 0) return
     const newAuthors = formData.authors.filter((_, i) => i !== index)
     setFormData({ ...formData, authors: newAuthors })
+  }
+
+  const searchAuthors = async (query: string, index: number) => {
+    if (!query || query.length < 2) {
+      setAuthorSearchResults([])
+      return
+    }
+
+    setSearchingAuthor(true)
+    try {
+      const response = await api.get(`/authors?query=${encodeURIComponent(query)}&limit=10`)
+      setAuthorSearchResults(response.data)
+    } catch (err) {
+      console.error("Failed to search authors:", err)
+      setAuthorSearchResults([])
+    } finally {
+      setSearchingAuthor(false)
+    }
+  }
+
+  const selectAuthor = (index: number, author: any) => {
+    const newAuthors = [...formData.authors]
+    newAuthors[index] = {
+      name: author.name,
+      email: author.email,
+      affiliation: author.affiliation,
+      isAI: author.is_ai_model || false,
+      author_id: author.id
+    }
+    setFormData({ ...formData, authors: newAuthors })
+    setAuthorSearchResults([])
   }
 
   const toggleCategory = (categoryId: string) => {
@@ -251,13 +308,18 @@ export default function SubmitPage() {
             {/* Step 2: Authors */}
             {currentStep === 2 && (
               <div className="space-y-6">
+                <p className="text-sm text-muted-foreground">
+                  You are automatically listed as the first author. Add co-authors by searching for their Archivara account.
+                </p>
                 <div className="space-y-4">
                   {formData.authors.map((author, index) => (
                     <Card key={index} className="p-4">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium">Author {index + 1}</h4>
-                          {formData.authors.length > 1 && (
+                          <h4 className="font-medium">
+                            {index === 0 ? "You (First Author)" : `Co-author ${index}`}
+                          </h4>
+                          {index > 0 && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -268,52 +330,82 @@ export default function SubmitPage() {
                             </Button>
                           )}
                         </div>
-                        <div className="grid gap-4">
-                          <div>
-                            <label className="text-sm font-medium">Name *</label>
-                            <Input
-                              value={author.name}
-                              onChange={(e) => handleAuthorChange(index, "name", e.target.value)}
-                              placeholder="Author name"
-                            />
+
+                        {index === 0 ? (
+                          /* First author - display only (current user) */
+                          <div className="bg-muted/30 rounded-md p-3 space-y-2">
+                            <p className="text-sm"><span className="font-medium">Name:</span> {author.name}</p>
+                            <p className="text-sm"><span className="font-medium">Email:</span> {author.email}</p>
+                            {author.affiliation && (
+                              <p className="text-sm"><span className="font-medium">Affiliation:</span> {author.affiliation}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Your information is pulled from your account
+                            </p>
                           </div>
-                          <div>
-                            <label className="text-sm font-medium">Email</label>
-                            <Input
-                              value={author.email || ""}
-                              onChange={(e) => handleAuthorChange(index, "email", e.target.value)}
-                              placeholder="author@institution.edu (for verified checkmark)"
-                              type="email"
-                            />
+                        ) : (
+                          /* Co-authors - search and link accounts */
+                          <div className="space-y-3">
+                            <div className="relative">
+                              <label className="text-sm font-medium">Search by name</label>
+                              <Input
+                                value={author.name}
+                                onChange={(e) => {
+                                  handleAuthorChange(index, "name", e.target.value)
+                                  searchAuthors(e.target.value, index)
+                                }}
+                                placeholder="Start typing to search for an author..."
+                              />
+                              {searchingAuthor && (
+                                <Icons.loader className="absolute right-3 top-8 h-4 w-4 animate-spin" />
+                              )}
+                              {authorSearchResults.length > 0 && (
+                                <div className="absolute z-10 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                  {authorSearchResults.map((searchAuthor) => (
+                                    <button
+                                      key={searchAuthor.id}
+                                      type="button"
+                                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                                      onClick={() => selectAuthor(index, searchAuthor)}
+                                    >
+                                      <div className="font-medium">{searchAuthor.name}</div>
+                                      {searchAuthor.affiliation && (
+                                        <div className="text-xs text-muted-foreground">{searchAuthor.affiliation}</div>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {author.author_id && (
+                              <div className="flex items-center text-xs text-green-600 dark:text-green-400">
+                                <Icons.checkCircle className="h-3 w-3 mr-1" />
+                                Linked to Archivara account
+                              </div>
+                            )}
+
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`ai-author-${index}`}
+                                checked={author.isAI || false}
+                                onChange={(e) => handleAuthorChange(index, "isAI", e.target.checked)}
+                                className="rounded border-gray-300"
+                              />
+                              <label htmlFor={`ai-author-${index}`} className="text-sm">
+                                This is an AI model/agent
+                              </label>
+                            </div>
                           </div>
-                          <div>
-                            <label className="text-sm font-medium">Affiliation</label>
-                            <Input
-                              value={author.affiliation || ""}
-                              onChange={(e) => handleAuthorChange(index, "affiliation", e.target.value)}
-                              placeholder="Institution or organization"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`ai-author-${index}`}
-                            checked={author.isAI || false}
-                            onChange={(e) => handleAuthorChange(index, "isAI", e.target.checked)}
-                            className="rounded border-gray-300"
-                          />
-                          <label htmlFor={`ai-author-${index}`} className="text-sm">
-                            This is an AI model/agent
-                          </label>
-                        </div>
+                        )}
                       </div>
                     </Card>
                   ))}
                 </div>
                 <Button type="button" variant="outline" onClick={addAuthor}>
                   <Icons.plus className="mr-2 h-4 w-4" />
-                  Add Author
+                  Add Co-author
                 </Button>
               </div>
             )}
