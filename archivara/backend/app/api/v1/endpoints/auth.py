@@ -2,10 +2,13 @@ from datetime import timedelta, datetime
 from typing import Annotated
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from authlib.integrations.starlette_client import OAuth
+import httpx
 
 from app.core.config import settings
 from app.core.security import (
@@ -19,6 +22,16 @@ from app.schemas.user import UserCreate, UserResponse, Token
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+# Initialize OAuth
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 
 async def get_current_user(
@@ -51,24 +64,20 @@ async def get_current_user(
 
 
 async def send_verification_email(email: str, token: str):
-    """Send verification email using SMTP (completely free)"""
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
+    """Send verification email using Resend API"""
+    import resend
 
     verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
 
-    # If SMTP not configured, just log
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print(f"[EMAIL] SMTP not configured. Verification URL: {verification_url}")
+    # Check if Resend API key is configured
+    if not settings.RESEND_API_KEY:
+        print(f"[EMAIL] Resend API key not configured. Verification URL: {verification_url}")
+        print(f"[EMAIL] User registered with email: {email}")
+        print(f"[EMAIL] For testing, auto-verify users or copy this URL to verify manually")
         return
 
     try:
-        # Create message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "Verify your Archivara account"
-        msg['From'] = f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>"
-        msg['To'] = email
+        resend.api_key = settings.RESEND_API_KEY
 
         # HTML content
         html = f"""
@@ -76,7 +85,7 @@ async def send_verification_email(email: str, token: str):
           <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
               <h2 style="color: #C47456;">Welcome to Archivara!</h2>
-              <p>Thank you for registering. Please verify your email address to activate your account.</p>
+              <p>Thank you for registering with {email}. Please verify your email address to activate your account.</p>
               <div style="margin: 30px 0;">
                 <a href="{verification_url}"
                    style="background-color: #C47456; color: white; padding: 12px 30px;
@@ -100,36 +109,22 @@ async def send_verification_email(email: str, token: str):
         </html>
         """
 
-        # Plain text fallback
-        text = f"""
-        Welcome to Archivara!
+        # Send email via Resend
+        # Note: Resend free tier requires verified domain to send to others
+        # For testing, it only sends to the owner's email
+        params = {
+            "from": f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM}>",
+            "to": [email],
+            "subject": "Verify your Archivara account",
+            "html": html,
+        }
 
-        Thank you for registering. Please verify your email address to activate your account.
-
-        Verify your email by clicking this link:
-        {verification_url}
-
-        This link will expire in 24 hours.
-
-        If you didn't create an account, you can safely ignore this email.
-        """
-
-        # Attach both versions
-        part1 = MIMEText(text, 'plain')
-        part2 = MIMEText(html, 'html')
-        msg.attach(part1)
-        msg.attach(part2)
-
-        # Send via SMTP
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-
+        resend.Emails.send(params)
         print(f"[EMAIL] Verification email sent to {email}")
 
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send email to {email}: {e}")
+        print(f"[EMAIL] Verification URL (for manual testing): {verification_url}")
         # Don't fail registration if email fails
         pass
 
@@ -182,20 +177,27 @@ async def login(
     # OAuth2PasswordRequestForm uses username field, but we use email
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
-    
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    # Check if email is verified
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email before logging in. Check your inbox for the verification link.",
+        )
+
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -239,4 +241,162 @@ async def verify_email(
     user.verification_token_expires = None
     await db.commit()
 
-    return {"message": "Email verified successfully"} 
+    return {"message": "Email verified successfully"}
+
+
+@router.get("/google/login")
+async def google_login(request: Request):
+    """Initiate Google OAuth login flow."""
+    redirect_uri = settings.GOOGLE_REDIRECT_URI
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Handle Google OAuth callback."""
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+
+        if not user_info:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to get user info from Google"
+            )
+
+        email = user_info.get('email')
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not provided by Google"
+            )
+
+        # Check if user already exists
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if user:
+            # Update OAuth info if user exists
+            if not user.oauth_provider:
+                user.oauth_provider = 'google'
+                user.oauth_sub = user_info.get('sub')
+                user.is_verified = True  # Google emails are already verified
+                user.picture = user_info.get('picture')
+        else:
+            # Create new user
+            user = User(
+                email=email,
+                full_name=user_info.get('name', email.split('@')[0]),
+                oauth_provider='google',
+                oauth_sub=user_info.get('sub'),
+                is_verified=True,  # Google emails are already verified
+                picture=user_info.get('picture')
+            )
+            db.add(user)
+
+        await db.commit()
+        await db.refresh(user)
+
+        # Create access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.email}, expires_delta=access_token_expires
+        )
+
+        # Redirect to frontend with token
+        frontend_url = settings.FRONTEND_URL
+        return RedirectResponse(
+            url=f"{frontend_url}/login?token={access_token}&email={email}&name={user.full_name}"
+        )
+
+    except Exception as e:
+        print(f"Google OAuth error: {e}")
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=oauth_failed"
+        )
+
+
+@router.post("/google/token", response_model=Token)
+async def google_token_login(
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Verify Google ID token and login (for frontend Google Sign-In)."""
+    try:
+        # Verify the token with Google
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://oauth2.googleapis.com/tokeninfo?id_token={token}"
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid Google token"
+                )
+
+            user_info = response.json()
+
+            # Verify the token is for our app
+            if user_info.get('aud') != settings.GOOGLE_CLIENT_ID:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token not for this application"
+                )
+
+            email = user_info.get('email')
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email not provided by Google"
+                )
+
+            # Check if user already exists
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+
+            if user:
+                # Update OAuth info if user exists
+                if not user.oauth_provider:
+                    user.oauth_provider = 'google'
+                    user.oauth_sub = user_info.get('sub')
+                    user.is_verified = True
+                    user.picture = user_info.get('picture')
+            else:
+                # Create new user
+                user = User(
+                    email=email,
+                    full_name=user_info.get('name', email.split('@')[0]),
+                    oauth_provider='google',
+                    oauth_sub=user_info.get('sub'),
+                    is_verified=True,
+                    picture=user_info.get('picture')
+                )
+                db.add(user)
+
+            await db.commit()
+            await db.refresh(user)
+
+            # Create access token
+            access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token = create_access_token(
+                data={"sub": user.email}, expires_delta=access_token_expires
+            )
+
+            return {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": UserResponse.model_validate(user).model_dump()
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Google token verification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to verify Google token"
+        ) 

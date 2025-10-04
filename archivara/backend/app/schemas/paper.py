@@ -133,6 +133,8 @@ class PaperResponse(PaperInDB):
     cited_by_count: int = 0
     meta: Optional[dict] = None  # Additional metadata
     generation_method: Optional[str] = None
+    community_upvotes: int = 0
+    community_downvotes: int = 0
 
     @classmethod
     def from_paper(cls, paper: "Paper") -> "PaperResponse":
@@ -162,7 +164,9 @@ class PaperResponse(PaperInDB):
             models=paper.models,
             tools=paper.tools,
             citation_count=0,
-            cited_by_count=0
+            cited_by_count=0,
+            community_upvotes=paper.community_upvotes or 0,
+            community_downvotes=paper.community_downvotes or 0
         )
 
 

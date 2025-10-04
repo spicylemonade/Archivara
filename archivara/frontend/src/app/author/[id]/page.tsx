@@ -1,87 +1,57 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Icons } from "@/components/icons"
 import { PaperCard } from "@/components/paper-card"
-
-// Mock data
-const MOCK_AUTHOR = {
-  id: "1",
-  name: "Cameron Cook",
-  affiliation: "University of Example",
-  email: "ccook@example.edu",
-  orcid: "0000-0001-2345-6789",
-  h_index: 15,
-  total_citations: 342,
-  total_papers: 28,
-  research_areas: [
-    "Dark Matter Detection",
-    "Machine Learning",
-    "Quantum Chemistry",
-    "Molecular Physics"
-  ],
-  recent_papers: [
-    {
-      id: "1",
-      title: "Deep learning optimal molecular scintillators for dark matter direct detection",
-      authors: [
-        { name: "Cameron Cook" },
-        { name: "Carlos Blanco" },
-        { name: "Juri Smirnov" }
-      ],
-      abstract: "Direct searches for sub-GeV dark matter are limited by the intrinsic quantum properties of the target material...",
-      published_at: "2024-12-30T19:00:00Z",
-      tags: ["dark-matter", "machine-learning", "molecular-physics"],
-      generation_method: "GPT-4 + Human Review",
-    },
-    {
-      id: "2",
-      title: "Novel approaches to quantum sensing with organic molecules",
-      authors: [
-        { name: "Cameron Cook" },
-        { name: "Alice Smith" }
-      ],
-      abstract: "We present a comprehensive framework for utilizing organic molecules as quantum sensors...",
-      published_at: "2024-11-15T10:00:00Z",
-      tags: ["quantum-sensing", "organic-chemistry"],
-      generation_method: "Claude-3",
-    },
-    {
-      id: "3",
-      title: "Machine learning accelerated discovery of scintillator materials",
-      authors: [
-        { name: "Cameron Cook" },
-        { name: "Bob Johnson" },
-        { name: "Eve Wilson" }
-      ],
-      abstract: "Traditional materials discovery for scintillators is a time-consuming process...",
-      published_at: "2024-10-20T14:30:00Z",
-      tags: ["materials-science", "machine-learning"],
-      generation_method: "GPT-4",
-    }
-  ],
-  collaborators: [
-    { id: "2", name: "Carlos Blanco", papers: 12 },
-    { id: "3", name: "Juri Smirnov", papers: 8 },
-    { id: "4", name: "Alice Smith", papers: 5 },
-    { id: "5", name: "Bob Johnson", papers: 3 }
-  ],
-  stats_by_year: [
-    { year: 2024, papers: 8, citations: 45 },
-    { year: 2023, papers: 6, citations: 89 },
-    { year: 2022, papers: 7, citations: 102 },
-    { year: 2021, papers: 4, citations: 67 },
-    { year: 2020, papers: 3, citations: 39 }
-  ]
-}
+import { authorsAPI } from "@/lib/api"
 
 export default function AuthorPage({ params }: { params: { id: string } }) {
-  const [author] = useState(MOCK_AUTHOR)
+  const [author, setAuthor] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"papers" | "stats" | "network">("papers")
+
+  useEffect(() => {
+    loadAuthorData()
+  }, [params.id])
+
+  const loadAuthorData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await authorsAPI.get(params.id)
+      setAuthor(response.data)
+    } catch (err: any) {
+      console.error('Failed to load author:', err)
+      setError(err.response?.data?.detail || 'Failed to load author profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="container pt-24 pb-12 md:pt-32 md:pb-24">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <Icons.loader className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !author) {
+    return (
+      <div className="container pt-24 pb-12 md:pt-32 md:pb-24">
+        <div className="bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 p-4">
+          <p className="text-sm">{error || 'Author not found'}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container pt-24 pb-12 md:pt-32 md:pb-24">

@@ -24,10 +24,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear token and redirect to login
+      // Clear invalid token but don't redirect
+      // Pages can handle auth requirements individually
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
@@ -66,4 +66,21 @@ export const mcpAPI = {
   listTools: () => api.get('/mcp/tools'),
   executeTool: (toolName: string, params: any) =>
     api.post(`/mcp/tools/${toolName}/execute`, params),
+};
+
+export const moderationAPI = {
+  vote: (paperId: string, vote: number) =>
+    api.post(`/moderation/papers/${paperId}/vote`, { vote }),
+  flag: (paperId: string, reason: string, details?: string) =>
+    api.post(`/moderation/papers/${paperId}/flag`, { reason, details }),
+  getMyVote: (paperId: string) =>
+    api.get(`/moderation/papers/${paperId}/my-vote`),
+  getModerationStatus: (paperId: string) =>
+    api.get(`/moderation/papers/${paperId}/moderation-status`),
+};
+
+export const authorsAPI = {
+  get: (id: string) => api.get(`/authors/${id}`),
+  search: (query?: string, limit?: number) =>
+    api.get('/authors', { params: { query, limit } }),
 }; 

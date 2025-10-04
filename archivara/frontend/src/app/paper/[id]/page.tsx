@@ -7,6 +7,26 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Icons } from "@/components/icons"
 import { formatDistanceToNowStrict } from "date-fns"
+import { papersAPI, moderationAPI } from "@/lib/api"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { isVerifiedEmailDomain } from "@/lib/verification"
+import { LatexText } from "@/components/latex-text"
 
 // Mock data - in production this would come from API
 const MOCK_PAPER = {
@@ -53,30 +73,76 @@ export default function PaperPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("abstract")
+  const [myVote, setMyVote] = useState<number>(0)
+  const [netVotes, setNetVotes] = useState<number>(0)
+  const [flagReason, setFlagReason] = useState<string>("")
+  const [flagDetails, setFlagDetails] = useState<string>("")
+  const [flagDialogOpen, setFlagDialogOpen] = useState(false)
 
   useEffect(() => {
     loadPaper()
+    loadVotingData()
   }, [params.id])
 
   const loadPaper = async () => {
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log("Loading paper with ID:", params.id)  // Debug log
-      
-      // Try API first, but expect it to fail since backend isn't running
+
+      // Try API first
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/papers/${params.id}`)
-        if (response.ok) {
-          const paperData = await response.json()
-          setPaper(paperData)
-          return
+        const response = await papersAPI.get(params.id)
+        console.log("Paper data loaded from API:", response.data)  // Debug log
+
+        // Transform the backend response to match frontend format
+        const paperData = {
+          id: response.data.id,
+          title: response.data.title,
+          abstract: response.data.abstract,
+          pdf_url: response.data.pdf_url,
+          tex_url: response.data.tex_url,
+          code_url: response.data.code_url,
+          data_url: response.data.data_url,
+          authors: response.data.authors?.map((author: any) => ({
+            id: author.id,
+            name: author.name,
+            email: author.email,
+            affiliation: author.affiliation || "Unknown",
+            isAI: author.is_ai_model || false
+          })) || [],
+          categories: response.data.categories?.map((cat: string) => ({
+            id: cat.toLowerCase().replace(/\s+/g, '-'),
+            name: cat,
+            primary: false
+          })) || [],
+          submitted_date: response.data.published_at || response.data.created_at,
+          updated_date: response.data.updated_at,
+          arxiv_id: response.data.arxiv_id || response.data.id,
+          doi: response.data.doi || `10.48550/arXiv.${response.data.id}`,
+          journal_ref: null,
+          comments: null,
+          report_no: null,
+          msc_class: null,
+          acm_class: null,
+          versions: [
+            { version: "v1", date: response.data.created_at, size: "Unknown" }
+          ],
+          generation_method: response.data.generation_method || "Unknown",
+          ai_tools: response.data.meta?.ai_tools || [],
+          human_review: true,
+          citations: 0,
+          references: []
         }
-      } catch (apiErr) {
-        console.log("API unavailable, using mock data for ID:", params.id)
+
+        setPaper(paperData)
+        return
+      } catch (apiErr: any) {
+        console.error("API error:", apiErr)
+        console.log("Using mock data for ID:", params.id)
       }
-      
+
       // Use mock data based on ID
       const mockPapers = {
         "1": {
@@ -162,6 +228,75 @@ export default function PaperPage({ params }: { params: { id: string } }) {
     }
   }
 
+  const loadVotingData = async () => {
+    try {
+      const [voteRes, statusRes] = await Promise.all([
+        moderationAPI.getMyVote(params.id).catch(() => ({ data: { vote: 0 } })),
+        moderationAPI.getModerationStatus(params.id).catch(() => ({
+          data: { community_upvotes: 0, community_downvotes: 0 }
+        }))
+      ])
+
+      setMyVote(voteRes.data.vote || 0)
+      const upvotes = statusRes.data.community_upvotes || 0
+      const downvotes = statusRes.data.community_downvotes || 0
+      setNetVotes(upvotes - downvotes)
+    } catch (err) {
+      console.error('Failed to load voting data:', err)
+    }
+  }
+
+  const handleVote = async (vote: number) => {
+    try {
+      const newVote = myVote === vote ? 0 : vote
+      const response = await moderationAPI.vote(params.id, newVote)
+      setMyVote(newVote)
+
+      const newNetVotes = response.data.net_votes || 0
+      setNetVotes(newNetVotes)
+
+      // Update the paper object with new vote counts
+      if (paper) {
+        const voteDiff = newVote - myVote
+        const newUpvotes = (paper.community_upvotes || 0) + (voteDiff > 0 ? voteDiff : 0)
+        const newDownvotes = (paper.community_downvotes || 0) + (voteDiff < 0 ? Math.abs(voteDiff) : 0)
+
+        setPaper({
+          ...paper,
+          community_upvotes: newUpvotes,
+          community_downvotes: newDownvotes
+        })
+      }
+    } catch (err: any) {
+      console.error('Failed to vote:', err)
+      if (err.response?.status === 401) {
+        alert('Please sign in to vote')
+      }
+    }
+  }
+
+  const handleFlag = async () => {
+    if (!flagReason) {
+      alert('Please select a reason')
+      return
+    }
+
+    try {
+      await moderationAPI.flag(params.id, flagReason, flagDetails)
+      setFlagDialogOpen(false)
+      setFlagReason("")
+      setFlagDetails("")
+      alert('Paper flagged for review. Thank you for helping maintain quality!')
+    } catch (err: any) {
+      console.error('Failed to flag:', err)
+      if (err.response?.status === 401) {
+        alert('Please sign in to flag papers')
+      } else if (err.response?.status === 400) {
+        alert(err.response.data.detail || 'Failed to flag paper')
+      }
+    }
+  }
+
   return (
     <div className="container max-w-5xl pt-24 pb-12 md:pt-32 md:pb-24">
       <Link
@@ -178,14 +313,8 @@ export default function PaperPage({ params }: { params: { id: string } }) {
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold leading-tight mb-4">{paper.title}</h1>
-              <div className="text-sm text-muted-foreground mb-4">
-                <span className="font-medium">arXiv:</span> {paper.arxiv_id}
-                {paper.doi && (
-                  <>
-                    {" • "}
-                    <span className="font-medium">DOI:</span> {paper.doi}
-                  </>
-                )}
+              <div className="text-sm text-muted-foreground mb-2">
+                <span className="font-medium">Archivara ID:</span> {paper.id}
               </div>
             </div>
 
@@ -196,9 +325,12 @@ export default function PaperPage({ params }: { params: { id: string } }) {
                 <span key={author.id} className="flex items-center gap-1">
                   <Link
                     href={`/author/${author.id}`}
-                    className="text-accent hover:underline"
+                    className="text-accent hover:underline inline-flex items-center gap-1"
                   >
                     {author.name}
+                    {isVerifiedEmailDomain(author.email) && (
+                      <Icons.checkCircle className="h-4 w-4 text-blue-500 inline" title="Verified institutional email" />
+                    )}
                   </Link>
                   {author.isAI && (
                     <Badge variant="secondary" className="ml-1 text-xs">
@@ -218,6 +350,79 @@ export default function PaperPage({ params }: { params: { id: string } }) {
                 <span>• Last revised {formatDistanceToNowStrict(new Date(paper.updated_date), { addSuffix: true })}</span>
               )}
               {paper.comments && <span>• {paper.comments}</span>}
+            </div>
+
+            {/* Community Actions */}
+            <div className="flex items-center gap-2 py-2 border-y">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={myVote === 1 ? "text-green-600" : ""}
+                onClick={() => handleVote(1)}
+              >
+                <Icons.arrowUp className="h-4 w-4 mr-1" />
+                Upvote
+              </Button>
+              <span className="font-medium text-base">{netVotes}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={myVote === -1 ? "text-red-600" : ""}
+                onClick={() => handleVote(-1)}
+              >
+                <Icons.arrowDown className="h-4 w-4 mr-1" />
+                Downvote
+              </Button>
+              <div className="ml-auto">
+                <Dialog open={flagDialogOpen} onOpenChange={setFlagDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Icons.flag className="h-4 w-4 mr-1" />
+                      Flag
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Flag Paper for Review</DialogTitle>
+                      <DialogDescription>
+                        Help us maintain quality by reporting issues with this paper.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label htmlFor="reason">Reason *</Label>
+                        <Select value={flagReason} onValueChange={setFlagReason}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a reason" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="spam">Spam</SelectItem>
+                            <SelectItem value="plagiarism">Plagiarism</SelectItem>
+                            <SelectItem value="low-quality">Low Quality</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="details">Additional Details (optional)</Label>
+                        <Textarea
+                          id="details"
+                          value={flagDetails}
+                          onChange={(e) => setFlagDetails(e.target.value)}
+                          placeholder="Provide more context..."
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setFlagDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleFlag}>Submit Flag</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
 
             {/* Categories */}
@@ -273,7 +478,9 @@ export default function PaperPage({ params }: { params: { id: string } }) {
           <div className="py-6">
             {activeTab === "abstract" && (
               <div className="prose prose-gray dark:prose-invert max-w-none">
-                <p className="text-base leading-relaxed">{paper.abstract}</p>
+                <div className="text-base leading-relaxed">
+                  <LatexText text={paper.abstract} inline={false} />
+                </div>
               </div>
             )}
             
@@ -321,23 +528,44 @@ export default function PaperPage({ params }: { params: { id: string } }) {
               <CardTitle>Access Paper</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full" size="lg">
-                <Icons.paper className="mr-2 h-4 w-4" />
-                View PDF
-              </Button>
-              <Button variant="outline" className="w-full">
-                <Icons.download className="mr-2 h-4 w-4" />
-                Download PDF
-              </Button>
-              <Button variant="outline" className="w-full">
-                HTML (experimental)
-              </Button>
-              <Button variant="outline" className="w-full">
-                TeX Source
-              </Button>
-              <Button variant="outline" className="w-full">
-                Other Formats
-              </Button>
+              {paper.pdf_url ? (
+                <>
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() => window.open(`http://localhost:8000/api/v1/papers/${paper.id}/pdf`, '_blank')}
+                  >
+                    <Icons.paper className="mr-2 h-4 w-4" />
+                    View PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      const link = document.createElement('a')
+                      link.href = `http://localhost:8000/api/v1/papers/${paper.id}/pdf`
+                      link.download = `${paper.arxiv_id || paper.id}.pdf`
+                      link.click()
+                    }}
+                  >
+                    <Icons.download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  PDF not available
+                </p>
+              )}
+              {paper.tex_url && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.open(paper.tex_url, '_blank')}
+                >
+                  TeX Source
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -430,16 +658,12 @@ export default function PaperPage({ params }: { params: { id: string } }) {
               {paper.human_review && (
                 <div className="flex items-center gap-2 text-sm">
                   <Icons.checkCircle className="h-4 w-4 text-green-600" />
-                  <span>Human reviewed</span>
+                  <span>AI reviewed</span>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>Generation Method: {paper.generation_method}</p>
-            {paper.doi && <p>DOI: {paper.doi}</p>}
-          </div>
         </div>
       </div>
     </div>

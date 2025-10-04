@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Icons } from "@/components/icons"
 import { PaperCard } from "@/components/paper-card"
 import { api } from "@/lib/api"
+import { isVerifiedEmailDomain, getVerificationLabel } from "@/lib/verification"
 
 interface User {
   id: string
@@ -183,9 +184,16 @@ export default function AccountPage() {
                   )}
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Account Status</p>
-                    <Badge variant={user.is_verified ? "default" : "secondary"}>
-                      {user.is_verified ? "Verified" : "Unverified"}
-                    </Badge>
+                    {isVerifiedEmailDomain(user.email) ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default" className="flex items-center gap-1">
+                          <Icons.checkCircle className="h-3 w-3" />
+                          {getVerificationLabel(user.email)}
+                        </Badge>
+                      </div>
+                    ) : (
+                      <Badge variant="secondary">Unverified Email Domain</Badge>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Member Since</p>

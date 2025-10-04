@@ -14,13 +14,18 @@ class User(Base):
 
     id = Column(String, primary_key=True, default=uuid_str)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # Nullable for OAuth users
     full_name = Column(String, nullable=False)
     affiliation = Column(String)
 
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_superuser = Column(Boolean, default=False)
+
+    # OAuth fields
+    oauth_provider = Column(String, nullable=True)  # 'google', etc.
+    oauth_sub = Column(String, nullable=True)  # OAuth provider's user ID
+    picture = Column(String, nullable=True)  # Profile picture URL
 
     # Email verification
     verification_token = Column(String, nullable=True)

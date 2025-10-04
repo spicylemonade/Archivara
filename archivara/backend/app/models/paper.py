@@ -19,6 +19,18 @@ class PaperStatus(str, enum.Enum):
     REJECTED = "rejected"
     RETRACTED = "retracted"
 
+class BaselineStatus(str, enum.Enum):
+    PASS = "pass"
+    WARN = "warn"
+    REJECT = "reject"
+    PENDING = "pending"
+
+class VisibilityTier(str, enum.Enum):
+    FRONTPAGE = "frontpage"
+    MAIN = "main"
+    RAW = "raw"
+    HIDDEN = "hidden"
+
 # Association tables
 paper_authors = Table(
     "paper_authors",
@@ -62,14 +74,29 @@ class Paper(Base):
     generation_method = Column(String)
     meta = Column("metadata", JSON, default=dict)
     # Status and submission
-    status = Column(Enum(PaperStatus), default=PaperStatus.SUBMITTED, nullable=False)
+    status = Column(Enum(PaperStatus, values_callable=lambda x: [e.value for e in x]), default=PaperStatus.SUBMITTED.value, nullable=False)
     submitter_id = Column(String, ForeignKey("users.id"), nullable=True)
+
+    # Moderation fields
+    baseline_status = Column(Enum(BaselineStatus, values_callable=lambda x: [e.value for e in x]), default=BaselineStatus.PENDING.value, nullable=False)
+    baseline_checks = Column(JSON, default=dict)  # Store detailed check results
+    quality_score = Column(Integer, default=0)  # 0-100
+    needs_review = Column(Boolean, default=False)
+    red_flags = Column(JSON, default=list)  # Store detected issues
+    community_upvotes = Column(Integer, default=0)
+    community_downvotes = Column(Integer, default=0)
+    flag_count = Column(Integer, default=0)
+    visibility_tier = Column(Enum(VisibilityTier, values_callable=lambda x: [e.value for e in x]), default=VisibilityTier.RAW.value, nullable=False)
+    moderation_notes = Column(Text, nullable=True)
+
     # Relationships
-    authors = relationship("Author", secondary=paper_authors, back_populates="papers")
+    authors = relationship("Author", secondary=paper_authors, back_populates="papers", order_by=paper_authors.c.order)
     models = relationship("Model", secondary=paper_models, back_populates="papers")
     tools = relationship("Tool", secondary=paper_tools, back_populates="papers")
     embeddings = relationship("Embedding", back_populates="paper", cascade="all, delete-orphan")
     submitter = relationship("User", back_populates="submitted_papers")
+    votes = relationship("PaperVote", back_populates="paper", cascade="all, delete-orphan")
+    flags = relationship("PaperFlag", back_populates="paper", cascade="all, delete-orphan")
 
 class Author(Base):
     __tablename__ = "authors"
@@ -108,4 +135,51 @@ class Embedding(Base):
     chunk_text = Column(Text, nullable=False)
     embedding_model = Column(String, nullable=False)
     vector_id = Column(String)
-    paper = relationship("Paper", back_populates="embeddings") 
+    paper = relationship("Paper", back_populates="embeddings")
+
+class PaperVote(Base):
+    """Track user votes on papers (upvote/downvote)"""
+    __tablename__ = "paper_votes"
+
+    id = Column(String, primary_key=True, default=uuid_str)
+    paper_id = Column(String, ForeignKey("papers.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    vote = Column(Integer, nullable=False)  # 1 for upvote, -1 for downvote
+    created_at = Column(DateTime(timezone=True), default=func.now())
+    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+
+    # Relationships
+    paper = relationship("Paper", back_populates="votes")
+    user = relationship("User", foreign_keys=[user_id])
+
+class PaperFlag(Base):
+    """Track user flags on papers for moderation"""
+    __tablename__ = "paper_flags"
+
+    id = Column(String, primary_key=True, default=uuid_str)
+    paper_id = Column(String, ForeignKey("papers.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    reason = Column(String, nullable=False)  # spam, plagiarism, low-quality, other
+    details = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # pending, reviewed, resolved
+    created_at = Column(DateTime(timezone=True), default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(String, ForeignKey("users.id"), nullable=True)
+
+    # Relationships
+    paper = relationship("Paper", back_populates="flags")
+    user = relationship("User", foreign_keys=[user_id])
+
+class SubmissionAttempt(Base):
+    """Track submission attempts for spam prevention and cooldown"""
+    __tablename__ = "submission_attempts"
+
+    id = Column(String, primary_key=True, default=uuid_str)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    paper_id = Column(String, ForeignKey("papers.id"), nullable=True)
+    status = Column(String, nullable=False)  # 'accepted', 'rejected'
+    rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), index=True)
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id]) 

@@ -12,6 +12,7 @@ import { subjects } from "@/config/subjects"
 
 interface Author {
   name: string
+  email?: string
   affiliation?: string
   isAI?: boolean
 }
@@ -25,9 +26,9 @@ export default function SubmitPage() {
   const [formData, setFormData] = useState({
     title: "",
     abstract: "",
-    authors: [{ name: "", affiliation: "", isAI: false }] as Author[],
+    authors: [{ name: "", email: "", affiliation: "", isAI: false }] as Author[],
     categories: [] as string[],
-    ai_tools: [] as string[],
+    ai_tools: "",
     generation_method: "",
     code_url: "",
     data_url: "",
@@ -61,7 +62,7 @@ export default function SubmitPage() {
   const addAuthor = () => {
     setFormData({
       ...formData,
-      authors: [...formData.authors, { name: "", affiliation: "", isAI: false }],
+      authors: [...formData.authors, { name: "", email: "", affiliation: "", isAI: false }],
     })
   }
 
@@ -79,14 +80,6 @@ export default function SubmitPage() {
     })
   }
 
-  const toggleAITool = (tool: string) => {
-    setFormData({
-      ...formData,
-      ai_tools: formData.ai_tools.includes(tool)
-        ? formData.ai_tools.filter(t => t !== tool)
-        : [...formData.ai_tools, tool],
-    })
-  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: "pdf_file" | "tex_file") => {
     const file = e.target.files?.[0] || null
@@ -102,7 +95,7 @@ export default function SubmitPage() {
       case 3:
         return formData.categories.length > 0
       case 4:
-        return formData.ai_tools.length > 0 && formData.generation_method.length > 0
+        return formData.ai_tools.trim().length > 0 && formData.generation_method.length > 0
       case 5:
         return formData.pdf_file !== null
       default:
@@ -120,7 +113,9 @@ export default function SubmitPage() {
       submitData.append("abstract", formData.abstract)
       submitData.append("authors", JSON.stringify(formData.authors))
       submitData.append("categories", JSON.stringify(formData.categories))
-      submitData.append("ai_tools", JSON.stringify(formData.ai_tools))
+      // Convert comma-separated string to array
+      const aiToolsArray = formData.ai_tools.split(',').map(t => t.trim()).filter(t => t.length > 0)
+      submitData.append("ai_tools", JSON.stringify(aiToolsArray))
       submitData.append("generation_method", formData.generation_method)
       if (formData.code_url) submitData.append("code_url", formData.code_url)
       if (formData.data_url) submitData.append("data_url", formData.data_url)
@@ -134,7 +129,23 @@ export default function SubmitPage() {
       // Redirect to success page or paper page
       router.push(`/paper/${response.data.id}`)
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to submit paper")
+      console.error('Submission error:', err)
+
+      // Handle rejection with detailed reasons
+      if (err.response?.status === 422 && err.response?.data?.detail) {
+        const detail = err.response.data.detail
+        if (typeof detail === 'object' && detail.reasons) {
+          setError(`Submission rejected:\n${detail.reasons.join('\n')}${detail.quality_score ? `\n\nQuality score: ${detail.quality_score}/100` : ''}`)
+        } else {
+          setError(typeof detail === 'string' ? detail : JSON.stringify(detail))
+        }
+      } else if (err.response?.status === 429) {
+        // Handle cooldown error
+        setError(err.response?.data?.detail || "Too many submissions. Please wait before trying again.")
+      } else {
+        setError(err.response?.data?.detail || "Failed to submit paper")
+      }
+
       setIsSubmitting(false)
     }
   }
@@ -146,8 +157,6 @@ export default function SubmitPage() {
     { number: 4, title: "AI Details", description: "AI tools and generation method" },
     { number: 5, title: "Files", description: "Upload paper files" },
   ]
-
-  const commonAITools = ["GPT-4", "Claude-3", "Gemini", "LLaMA", "DALL-E", "Midjourney", "SciBERT", "Other"]
 
   return (
     <div className="container pt-24 pb-12 md:pt-32 md:pb-24">
@@ -259,13 +268,22 @@ export default function SubmitPage() {
                             </Button>
                           )}
                         </div>
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-4">
                           <div>
                             <label className="text-sm font-medium">Name *</label>
                             <Input
                               value={author.name}
                               onChange={(e) => handleAuthorChange(index, "name", e.target.value)}
                               placeholder="Author name"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Email</label>
+                            <Input
+                              value={author.email || ""}
+                              onChange={(e) => handleAuthorChange(index, "email", e.target.value)}
+                              placeholder="author@institution.edu (for verified checkmark)"
+                              type="email"
                             />
                           </div>
                           <div>
@@ -303,35 +321,71 @@ export default function SubmitPage() {
                         {/* Step 3: Categories */}
             {currentStep === 3 && (
               <div className="space-y-6">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mb-4">
                   Select all categories that apply to your paper
                 </p>
-                {Object.values(subjects).map((subject) => (
-                  <div key={subject.name} className="space-y-4">
-                    <h4 className="font-medium text-lg">{subject.name}</h4>
-                    {Object.values(subject.categories).map((category) => (
-                      <div key={category.name} className="ml-4 space-y-2">
-                        <h5 className="font-medium text-sm text-muted-foreground">{category.name}</h5>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 ml-4">
-                          {category.subcategories.map((subcat) => (
+                <div className="max-h-[500px] overflow-y-auto pr-2 space-y-6">
+                  {Object.values(subjects).map((subject) => (
+                    <div key={subject.name} className="space-y-3">
+                      <h4 className="font-semibold text-base border-b pb-2">{subject.name}</h4>
+                      {Object.values(subject.categories).map((category) => (
+                        <div key={category.name} className="ml-2 space-y-2">
+                          {category.subcategories.length > 0 ? (
+                            <>
+                              <h5 className="font-medium text-sm text-muted-foreground">{category.name}</h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 ml-3">
+                                {category.subcategories.map((subcat) => (
+                                  <label
+                                    key={subcat}
+                                    className="flex items-start space-x-2 cursor-pointer text-sm hover:bg-accent/50 p-1.5 rounded group"
+                                  >
+                                    <div className="relative mt-0.5 flex-shrink-0">
+                                      <input
+                                        type="checkbox"
+                                        checked={formData.categories.includes(subcat)}
+                                        onChange={() => toggleCategory(subcat)}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-4 h-4 rounded-full border-2 border-gray-300 peer-checked:bg-accent peer-checked:border-accent transition-colors" />
+                                    </div>
+                                    <span className="leading-tight">{subcat}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </>
+                          ) : (
                             <label
-                              key={subcat}
-                              className="flex items-center space-x-2 cursor-pointer text-sm"
+                              className="flex items-start space-x-2 cursor-pointer text-sm hover:bg-accent/50 p-1.5 rounded group"
                             >
-                              <input
-                                type="checkbox"
-                                checked={formData.categories.includes(subcat)}
-                                onChange={() => toggleCategory(subcat)}
-                                className="rounded border-gray-300"
-                              />
-                              <span>{subcat}</span>
+                              <div className="relative mt-0.5 flex-shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.categories.includes(category.name)}
+                                  onChange={() => toggleCategory(category.name)}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-4 h-4 rounded-full border-2 border-gray-300 peer-checked:bg-accent peer-checked:border-accent transition-colors" />
+                              </div>
+                              <span className="leading-tight font-medium">{category.name}</span>
                             </label>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {formData.categories.length > 0 && (
+                  <div className="mt-4 p-3 bg-accent/20 rounded-md">
+                    <p className="text-sm font-medium mb-2">Selected categories ({formData.categories.length}):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.categories.map((cat) => (
+                        <Badge key={cat} variant="secondary" className="text-xs">
+                          {cat}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -339,25 +393,20 @@ export default function SubmitPage() {
             {currentStep === 4 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-3">
-                    AI Tools Used *
+                  <label htmlFor="ai_tools" className="block text-sm font-medium mb-2">
+                    AI Tools Used * (comma-separated)
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {commonAITools.map((tool) => (
-                      <label
-                        key={tool}
-                        className="flex items-center space-x-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.ai_tools.includes(tool)}
-                          onChange={() => toggleAITool(tool)}
-                          className="rounded border-gray-300"
-                        />
-                        <span className="text-sm">{tool}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <Input
+                    id="ai_tools"
+                    name="ai_tools"
+                    value={formData.ai_tools}
+                    onChange={handleInputChange}
+                    placeholder="e.g., GPT-4, Claude-3, DALL-E, Midjourney"
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter the AI tools and models used, separated by commas
+                  </p>
                 </div>
                 <div>
                   <label htmlFor="generation_method" className="block text-sm font-medium mb-2">

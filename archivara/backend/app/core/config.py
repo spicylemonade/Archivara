@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
+
     # Auth0
     AUTH0_DOMAIN: str = ""
     AUTH0_CLIENT_ID: str = ""
@@ -88,17 +93,24 @@ class Settings(BaseSettings):
     
     # Anthropic (for MCP)
     ANTHROPIC_API_KEY: Optional[str] = None
-    
-    # Frontend URL (for email verification links)
-    FRONTEND_URL: str = "http://localhost:3000"
 
-    # Email Configuration (SMTP - Free)
+    # OpenRouter (for moderation LLM)
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_MODEL: str = "openai/gpt-4o"
+
+    # Frontend URL (for email verification links)
+    FRONTEND_URL: str = "http://localhost:3001"
+
+    # Email Configuration
+    RESEND_API_KEY: str = ""  # Resend API key for sending emails
+    EMAIL_FROM: str = "onboarding@resend.dev"  # Sender email address
+    EMAIL_FROM_NAME: str = "Archivara"
+
+    # SMTP Configuration (Fallback)
     SMTP_HOST: str = "smtp.gmail.com"  # Use your email provider
     SMTP_PORT: int = 587
     SMTP_USER: str = ""  # Your email address
     SMTP_PASSWORD: str = ""  # App password (not regular password)
-    EMAIL_FROM: str = ""  # Your email address
-    EMAIL_FROM_NAME: str = "Archivara"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]

@@ -23,6 +23,21 @@ export default function BrowsePage() {
     loadPapers()
   }, [])
 
+  // Refetch papers when user returns to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page is now visible, refetch papers
+        loadPapers(1, searchQuery)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [searchQuery])
+
   const loadPapers = async (pageNum = 1, query = "") => {
     try {
       setLoading(pageNum === 1)

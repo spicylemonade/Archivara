@@ -53,14 +53,15 @@ class S3StorageService:
         
         try:
             async with self.session.client('s3', endpoint_url=self.endpoint_url) as s3:
-                # Upload file
+                # Upload file with public-read ACL
                 await s3.put_object(
                     Bucket=self.bucket_name,
                     Key=file_key,
                     Body=content,
-                    ContentType=self._get_content_type(file_extension)
+                    ContentType=self._get_content_type(file_extension),
+                    ACL='public-read'  # Make file publicly accessible
                 )
-                
+
                 # Generate URL
                 if self.endpoint_url:
                     # MinIO or custom endpoint
@@ -68,7 +69,7 @@ class S3StorageService:
                 else:
                     # AWS S3
                     file_url = f"https://{self.bucket_name}.s3.{settings.AWS_REGION}.amazonaws.com/{file_key}"
-                
+
                 logger.info("File uploaded to S3", key=file_key, hash=file_hash)
                 return file_url, file_hash
                 

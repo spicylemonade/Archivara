@@ -10,14 +10,6 @@ class UserBase(BaseModel):
     full_name: str
     affiliation: Optional[str] = None
 
-    @field_validator('email')
-    @classmethod
-    def validate_edu_email(cls, v: str) -> str:
-        """Validate that email ends with .edu"""
-        if not v.endswith('.edu'):
-            raise ValueError('Only .edu email addresses are allowed')
-        return v
-
 
 class UserCreate(UserBase):
     """Schema for creating user."""

@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Icons } from "@/components/icons"
 import { subjects } from "@/config/subjects"
+import { api } from "@/lib/api"
 
 // Main subject collections based on arXiv categories
 const SUBJECT_COLLECTIONS = [
@@ -118,7 +120,104 @@ const CURATED_COLLECTIONS = [
   }
 ]
 
+// Helper to map category strings to subject IDs
+function getCategorySubject(category: string): string {
+  const cat = category.toLowerCase()
+
+  // Mathematics
+  if (cat.includes('algebra') || cat.includes('geometry') || cat.includes('topology') ||
+      cat.includes('analysis') || cat.includes('number theory') || cat.includes('probability') ||
+      cat.includes('combinatorics') || cat.includes('logic') || cat.includes('optimization') ||
+      cat.match(/\bmath\b/)) {
+    return 'mathematics'
+  }
+
+  // Computer Science
+  if (cat.includes('artificial intelligence') || cat.includes('machine learning') ||
+      cat.includes('computer') || cat.includes('algorithm') || cat.includes('programming') ||
+      cat.includes('software') || cat.includes('data structure') || cat.includes('cryptography') ||
+      cat.includes('network') || cat.includes('database')) {
+    return 'computer-science'
+  }
+
+  // Physics (various subcategories)
+  if (cat.includes('physics') || cat.includes('quantum') || cat.includes('astrophysics') ||
+      cat.includes('cosmology') || cat.includes('relativity') || cat.includes('particle') ||
+      cat.includes('nuclear') || cat.includes('condensed matter') || cat.includes('optics') ||
+      cat.includes('plasma')) {
+    return 'physics'
+  }
+
+  // Biology
+  if (cat.includes('biology') || cat.includes('genomics') || cat.includes('bioinformatics') ||
+      cat.includes('molecular') || cat.includes('cell')) {
+    return 'quantitative-biology'
+  }
+
+  // Finance
+  if (cat.includes('finance') || cat.includes('economic') || cat.includes('trading')) {
+    return 'quantitative-finance'
+  }
+
+  // Statistics
+  if (cat.includes('statistics') || cat.includes('statistical')) {
+    return 'statistics'
+  }
+
+  // Electrical Engineering
+  if (cat.includes('electrical') || cat.includes('signal processing') || cat.includes('control systems')) {
+    return 'electrical-engineering'
+  }
+
+  // Economics
+  if (cat.includes('econom')) {
+    return 'economics'
+  }
+
+  return 'other'
+}
+
 export default function CollectionsPage() {
+  const [subjectCounts, setSubjectCounts] = useState<Record<string, number>>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadPaperCounts()
+  }, [])
+
+  const loadPaperCounts = async () => {
+    try {
+      const response = await api.get('/papers', { params: { size: 1000 } })
+      const papers = response.data.items || []
+
+      // Count papers by subject
+      const counts: Record<string, number> = {}
+      SUBJECT_COLLECTIONS.forEach(s => counts[s.id] = 0)
+
+      papers.forEach((paper: any) => {
+        const categories = paper.categories || []
+        const subjects = new Set<string>()
+
+        categories.forEach((cat: string) => {
+          const subject = getCategorySubject(cat)
+          if (subject !== 'other') {
+            subjects.add(subject)
+          }
+        })
+
+        subjects.forEach(subject => {
+          counts[subject] = (counts[subject] || 0) + 1
+        })
+      })
+
+      setSubjectCounts(counts)
+    } catch (err) {
+      console.error('Failed to load paper counts:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="container pt-24 pb-8 md:pt-32 md:pb-12">
       <div className="space-y-12">
@@ -136,6 +235,7 @@ export default function CollectionsPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {SUBJECT_COLLECTIONS.map((subject) => {
                 const Icon = subject.icon
+                const paperCount = subjectCounts[subject.id] || 0
                 return (
                   <Link key={subject.id} href={`/browse?subject=${subject.id}`}>
                     <Card className="h-full hover:shadow-lg transition-all hover:-translate-y-1 bg-card dark:bg-card cursor-pointer">
@@ -143,7 +243,7 @@ export default function CollectionsPage() {
                         <div className="flex items-start justify-between mb-2">
                           <Icon className="h-8 w-8 text-accent" />
                           <Badge variant="secondary" className="text-xs">
-                            {subject.papers.toLocaleString()} papers
+                            {loading ? '...' : paperCount.toLocaleString()} papers
                           </Badge>
                         </div>
                         <CardTitle className="text-lg">{subject.title}</CardTitle>

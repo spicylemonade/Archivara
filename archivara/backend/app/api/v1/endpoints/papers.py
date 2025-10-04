@@ -1,6 +1,8 @@
 from typing import List, Optional, Annotated
 from datetime import datetime
 import json
+import io
+import base64
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,14 +11,18 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 
 from app.db.session import get_db
-from app.models.paper import Paper, Author, Model, Tool
+from app.models.paper import Paper, Author, Model, Tool, SubmissionAttempt, BaselineStatus, paper_authors
 from app.models.user import User
+from app.lib.verification import isVerifiedEmailDomain
 from app.schemas.paper import PaperCreate, PaperResponse, PaperList, PaperUpdate
 from app.services.storage import storage_service, S3StorageService
 from app.services.embeddings import embedding_service
+from app.services.moderation import ModerationService
 # from app.services.vector_db import vector_db_service  # TODO: Reimplement vector DB service
 from app.core.config import settings
 from app.api.v1.endpoints.auth import get_current_user
+from fastapi.responses import StreamingResponse
+from urllib.parse import urlparse
 
 router = APIRouter()
 
@@ -105,6 +111,43 @@ async def submit_paper(
     db: AsyncSession = Depends(get_db),
 ):
     """Submit a new paper."""
+    # Check submission cooldown
+    is_verified = isVerifiedEmailDomain(current_user.email)
+
+    # Get recent rejected submissions
+    from datetime import timedelta
+    six_hours_ago = datetime.utcnow() - timedelta(hours=6)
+    recent_rejections = await db.execute(
+        select(SubmissionAttempt)
+        .where(SubmissionAttempt.user_id == current_user.id)
+        .where(SubmissionAttempt.status == 'rejected')
+        .where(SubmissionAttempt.created_at >= six_hours_ago)
+        .order_by(SubmissionAttempt.created_at.desc())
+    )
+    recent_rejections_list = recent_rejections.scalars().all()
+
+    # Check cooldown rules
+    if is_verified:
+        # Verified users get 4 tries
+        if len(recent_rejections_list) >= 4:
+            last_rejection = recent_rejections_list[0]
+            time_remaining = (last_rejection.created_at + timedelta(hours=6)) - datetime.utcnow()
+            minutes_remaining = int(time_remaining.total_seconds() / 60)
+            raise HTTPException(
+                status_code=429,
+                detail=f"You have exceeded 4 submission attempts. Please wait {minutes_remaining} minutes before trying again. Last rejection reason: {last_rejection.rejection_reason}"
+            )
+    else:
+        # Unverified users get 1 try
+        if len(recent_rejections_list) >= 1:
+            last_rejection = recent_rejections_list[0]
+            time_remaining = (last_rejection.created_at + timedelta(hours=6)) - datetime.utcnow()
+            minutes_remaining = int(time_remaining.total_seconds() / 60)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Your submission was rejected. Please wait {minutes_remaining} minutes before trying again. Rejection reason: {last_rejection.rejection_reason}"
+            )
+
     try:
         # Parse JSON fields
         authors_list = json.loads(authors)
@@ -112,22 +155,36 @@ async def submit_paper(
         ai_tools_list = json.loads(ai_tools)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON in form fields")
-    
+
+    # Read PDF and encode to base64 for OpenRouter
+    pdf_content = await pdf_file.read()
+    pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+
+    # Reset file pointer for upload
+    pdf_file.file = io.BytesIO(pdf_content)
+
     # Upload files to S3
     storage = S3StorageService()
-    
+
     # Upload PDF
     pdf_key = f"papers/{current_user.id}/{datetime.utcnow().isoformat()}-{pdf_file.filename}"
-    pdf_url, pdf_hash = await storage.upload_file(pdf_file.file, pdf_key, pdf_file.content_type)
-    
+    pdf_url, pdf_hash = await storage.upload_file(
+        pdf_file.file,
+        ".pdf",
+        folder=f"papers/{current_user.id}"
+    )
+
     # Upload TeX if provided
     tex_url = None
     tex_hash = None
     if tex_file:
-        tex_key = f"papers/{current_user.id}/{datetime.utcnow().isoformat()}-{tex_file.filename}"
-        tex_url, tex_hash = await storage.upload_file(tex_file.file, tex_key, tex_file.content_type)
-    
-    # Create paper
+        tex_url, tex_hash = await storage.upload_file(
+            tex_file.file,
+            ".tex",
+            folder=f"papers/{current_user.id}"
+        )
+
+    # Create paper (temporary object for moderation)
     paper = Paper(
         title=title,
         abstract=abstract,
@@ -140,25 +197,100 @@ async def submit_paper(
         code_url=code_url,
         data_url=data_url,
         generation_method=generation_method,
-        status="submitted",
         meta={
             "ai_tools": ai_tools_list,
+            "pdf_base64": pdf_base64,  # Store base64 PDF for OpenRouter
         }
     )
-    
-    # Create authors
-    for author_data in authors_list:
-        author = Author(
-            name=author_data["name"],
-            affiliation=author_data.get("affiliation"),
-            is_ai_model=author_data.get("isAI", False),
+
+    # Run moderation checks with PDF
+    moderation = ModerationService(db)
+    baseline_result = await moderation.run_baseline_checks(paper)
+    quality_score, quality_analysis = await moderation.calculate_quality_score(paper, pdf_base64=pdf_base64)
+    red_flags = await moderation.detect_red_flags(paper, pdf_base64=pdf_base64)
+    visibility_tier = await moderation.assign_visibility_tier(paper)
+
+    # Update paper with moderation results
+    paper.baseline_status = baseline_result['status']
+    paper.baseline_checks = baseline_result['checks']
+    paper.quality_score = quality_score
+    paper.red_flags = red_flags
+    paper.visibility_tier = visibility_tier
+    paper.needs_review = baseline_result['status'] == 'warn' or len(red_flags) > 0
+
+    # Check if paper should be rejected
+    if baseline_result['status'] == 'reject' or baseline_result['status'] == BaselineStatus.REJECT.value:
+        # Create rejection record
+        rejection_reasons = baseline_result.get('issues', [])
+        rejection_text = '; '.join(rejection_reasons) if rejection_reasons else 'Paper did not meet quality standards'
+
+        submission_attempt = SubmissionAttempt(
+            user_id=current_user.id,
+            paper_id=None,  # Paper wasn't accepted
+            status='rejected',
+            rejection_reason=rejection_text
         )
-        paper.authors.append(author)
-    
+        db.add(submission_attempt)
+        await db.commit()
+
+        raise HTTPException(
+            status_code=422,
+            detail={
+                'message': 'Paper submission rejected',
+                'reasons': rejection_reasons,
+                'quality_score': quality_score
+            }
+        )
+
+    # First save the paper without authors
     db.add(paper)
+    await db.flush()  # Get paper ID without committing
+
+    # Create authors with explicit ordering
+    for idx, author_data in enumerate(authors_list):
+        # Check if author already exists by email
+        existing_author = None
+        if author_data.get("email"):
+            result = await db.execute(
+                select(Author).where(Author.email == author_data["email"])
+            )
+            existing_author = result.scalar_one_or_none()
+
+        if existing_author:
+            author_id = existing_author.id
+        else:
+            author = Author(
+                name=author_data["name"],
+                email=author_data.get("email"),
+                affiliation=author_data.get("affiliation"),
+                is_ai_model=author_data.get("isAI", False),
+            )
+            db.add(author)
+            await db.flush()
+            author_id = author.id
+
+        # Insert into paper_authors with order
+        await db.execute(
+            paper_authors.insert().values(
+                paper_id=paper.id,
+                author_id=author_id,
+                order=idx
+            )
+        )
+
     await db.commit()
     await db.refresh(paper)
-    
+
+    # Record successful submission
+    submission_attempt = SubmissionAttempt(
+        user_id=current_user.id,
+        paper_id=paper.id,
+        status='accepted',
+        rejection_reason=None
+    )
+    db.add(submission_attempt)
+    await db.commit()
+
     # Eagerly load relationships to prevent async errors during serialization
     result = await db.execute(
         select(Paper).where(Paper.id == paper.id).options(
@@ -174,7 +306,7 @@ async def submit_paper(
 
 @router.get("/{paper_id}", response_model=PaperResponse)
 async def get_paper(
-    paper_id: UUID,
+    paper_id: str,
     db: AsyncSession = Depends(get_db)
 ):
     """Get a specific paper by ID"""
@@ -185,11 +317,11 @@ async def get_paper(
     )
     result = await db.execute(query)
     paper = result.scalar_one_or_none()
-    
+
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    
-    return paper
+
+    return PaperResponse.from_paper(paper)
 
 
 @router.post("/", response_model=PaperResponse)
@@ -356,16 +488,55 @@ async def delete_paper(
     query = select(Paper).where(Paper.id == paper_id)
     result = await db.execute(query)
     paper = result.scalar_one_or_none()
-    
+
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    
+
     # Delete from vector DB
     # TODO: Reimplement vector DB deletion
     # await vector_db_service.delete_paper(paper_id)
-    
+
     # Delete from database (cascade will handle related records)
     await db.delete(paper)
     await db.commit()
-    
-    return {"message": "Paper deleted successfully"} 
+
+    return {"message": "Paper deleted successfully"}
+
+
+@router.get("/{paper_id}/pdf")
+async def get_paper_pdf(
+    paper_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Serve paper PDF through backend (proxy for S3)"""
+    # Get paper
+    query = select(Paper).where(Paper.id == paper_id)
+    result = await db.execute(query)
+    paper = result.scalar_one_or_none()
+
+    if not paper or not paper.pdf_url:
+        raise HTTPException(status_code=404, detail="PDF not found")
+
+    # Extract S3 key from URL
+    parsed_url = urlparse(paper.pdf_url)
+    s3_key = parsed_url.path.lstrip('/')
+
+    # Remove bucket name from key if present
+    bucket_name = settings.S3_BUCKET_NAME
+    if s3_key.startswith(f"{bucket_name}/"):
+        s3_key = s3_key[len(bucket_name)+1:]
+
+    # Get file from S3
+    storage = S3StorageService()
+    try:
+        file_content = await storage.download_file(s3_key)
+
+        return StreamingResponse(
+            io.BytesIO(file_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{paper.arxiv_id or paper.id}.pdf"'
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Failed to retrieve PDF: {str(e)}") 

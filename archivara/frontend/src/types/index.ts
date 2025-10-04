@@ -2,13 +2,31 @@ export interface Author {
   id: string
   name: string
   affiliation?: string
+  email?: string
   isAI?: boolean
+  is_ai_model?: boolean
+  is_verified?: boolean
 }
 
 export interface Category {
   id: string
   name: string
   primary?: boolean
+}
+
+export interface Tool {
+  id: string
+  name: string
+  version?: string
+  description?: string
+  tool_type?: string
+}
+
+export interface Model {
+  id: string
+  name: string
+  version?: string
+  provider?: string
 }
 
 export interface Paper {
@@ -26,11 +44,19 @@ export interface Paper {
   journal_ref?: string
   comments?: string
   generation_method?: string
-  ai_tools?: string[]
+  tools?: Tool[]
+  models?: Model[]
+  meta?: {
+    ai_tools?: string[]
+    [key: string]: any
+  }
   human_review?: boolean
   citations?: number
+  community_upvotes?: number
+  community_downvotes?: number
   pdf_url?: string
   tex_source?: string
+  tex_url?: string
   created_at?: string
   updated_at?: string
 }
