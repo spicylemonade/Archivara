@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { Icons } from "@/components/icons"
 import { api } from "@/lib/api"
 import Link from "next/link"
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying")
@@ -94,5 +94,28 @@ export default function VerifyEmailPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="container pt-24 pb-12 md:pt-32 md:pb-24">
+        <div className="mx-auto max-w-md">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-center mb-4">
+                <Icons.loader className="h-12 w-12 animate-spin text-accent" />
+              </div>
+              <CardTitle className="text-2xl font-bold text-center">
+                Loading...
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
