@@ -65,6 +65,8 @@ app.add_middleware(
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"] if settings.DEBUG else [
+        "archivara.org",
+        "*.archivara.org",
         "archivara.io",
         "*.archivara.io",
         "localhost",
