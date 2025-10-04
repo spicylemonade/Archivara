@@ -1,1 +1,1 @@
-web: echo '=== Running database migrations ===' && echo "DATABASE_URL: ${DATABASE_URL:0:30}..." && python -m alembic upgrade head && echo '=== Migrations complete ===' && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+web: bash start.sh
