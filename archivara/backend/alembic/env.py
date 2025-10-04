@@ -16,7 +16,11 @@ config = context.config
 
 # Override sqlalchemy.url with DATABASE_URL from environment if available
 if os.getenv("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+    db_url = os.getenv("DATABASE_URL")
+    # Railway provides postgresql:// but we need postgresql+asyncpg://
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
