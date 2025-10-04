@@ -7,6 +7,13 @@ const defaultBaseUrl =
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || defaultBaseUrl;
 
+// Log API URL on client side for debugging
+if (typeof window !== 'undefined') {
+  console.log('[API] Using API_BASE_URL:', API_BASE_URL);
+  console.log('[API] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+  console.log('[API] NODE_ENV:', process.env.NODE_ENV);
+}
+
 // Create axios instance with default config
 export const api = axios.create({
   baseURL: API_BASE_URL,
