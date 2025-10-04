@@ -4,6 +4,18 @@ set +e  # Don't exit on errors
 echo "=== Running database migrations ==="
 echo "DATABASE_URL: ${DATABASE_URL:0:30}..."
 
+# ONE-TIME: Reset database to fix schema issues
+if [ "${RESET_DB}" = "true" ]; then
+    echo "=== RESET_DB flag set, dropping all tables ==="
+    PSQL_URL=$(echo $DATABASE_URL | sed 's/postgresql+asyncpg/postgresql/')
+    psql "$PSQL_URL" <<EOF
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+EOF
+    echo "=== Database reset complete ==="
+fi
+
 # Try to run migrations, capture output and exit code
 python -m alembic upgrade head > /tmp/migration.log 2>&1
 MIGRATION_EXIT_CODE=$?
