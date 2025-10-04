@@ -24,8 +24,8 @@ export default function SubmitPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [authorSearchResults, setAuthorSearchResults] = useState<Record<number, any[]>>({})
-  const [searchingAuthor, setSearchingAuthor] = useState<Record<number, boolean>>({})
+  const [authorUrlInput, setAuthorUrlInput] = useState<Record<number, string>>({})
+  const [linkingAuthor, setLinkingAuthor] = useState<Record<number, boolean>>({})
 
   const [formData, setFormData] = useState({
     title: "",
@@ -54,11 +54,11 @@ export default function SubmitPage() {
   const loadCurrentUser = async () => {
     try {
       const response = await api.get("/auth/me")
+      console.log("User data:", response.data) // Debug
       setCurrentUser(response.data)
-      // Set first author as current user - use name field specifically
-      const userName = response.data.name && response.data.name !== response.data.email
-        ? response.data.name
-        : response.data.email
+
+      // Use name field from response
+      const userName = response.data.full_name || response.data.name || response.data.email
 
       setFormData(prev => ({
         ...prev,
@@ -101,35 +101,43 @@ export default function SubmitPage() {
     setFormData({ ...formData, authors: newAuthors })
   }
 
-  const searchAuthors = async (query: string, index: number) => {
-    if (!query || query.length < 2) {
-      setAuthorSearchResults(prev => ({ ...prev, [index]: [] }))
+  const linkAuthorByUrl = async (index: number) => {
+    const url = authorUrlInput[index]
+    if (!url) return
+
+    // Extract author ID from URL (supports /author/123, https://archivara.org/author/123, etc.)
+    const match = url.match(/\/author\/([a-zA-Z0-9-]+)/)
+    if (!match) {
+      setError("Invalid author URL. Please paste a valid author profile URL.")
       return
     }
 
-    setSearchingAuthor(prev => ({ ...prev, [index]: true }))
-    try {
-      const response = await api.get(`/authors?query=${encodeURIComponent(query)}&limit=10`)
-      setAuthorSearchResults(prev => ({ ...prev, [index]: response.data }))
-    } catch (err) {
-      console.error("Failed to search authors:", err)
-      setAuthorSearchResults(prev => ({ ...prev, [index]: [] }))
-    } finally {
-      setSearchingAuthor(prev => ({ ...prev, [index]: false }))
-    }
-  }
+    const authorId = match[1]
+    setLinkingAuthor(prev => ({ ...prev, [index]: true }))
 
-  const selectAuthor = (index: number, author: any) => {
-    const newAuthors = [...formData.authors]
-    newAuthors[index] = {
-      name: author.name,
-      email: author.email,
-      affiliation: author.affiliation,
-      isAI: author.is_ai_model || false,
-      author_id: author.id
+    try {
+      // Fetch author details
+      const response = await api.get(`/authors/${authorId}`)
+      const author = response.data
+
+      // Update author with linked data
+      const newAuthors = [...formData.authors]
+      newAuthors[index] = {
+        name: author.name,
+        email: author.email,
+        affiliation: author.affiliation,
+        isAI: author.is_ai_model || false,
+        author_id: author.id
+      }
+      setFormData({ ...formData, authors: newAuthors })
+      setAuthorUrlInput(prev => ({ ...prev, [index]: "" }))
+      setError(null)
+    } catch (err: any) {
+      console.error("Failed to link author:", err)
+      setError(err.response?.data?.detail || "Failed to find author. Check the URL and try again.")
+    } finally {
+      setLinkingAuthor(prev => ({ ...prev, [index]: false }))
     }
-    setFormData({ ...formData, authors: newAuthors })
-    setAuthorSearchResults(prev => ({ ...prev, [index]: [] }))
   }
 
   const unlinkAuthor = (index: number) => {
@@ -396,53 +404,40 @@ export default function SubmitPage() {
                                 )}
                               </div>
                             ) : (
-                              /* Show link account button and search */
+                              /* Show URL input to link account */
                               <div className="space-y-2">
-                                <div className="relative">
+                                <label className="text-sm font-medium text-muted-foreground">
+                                  Link Archivara Account (Optional)
+                                </label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={authorUrlInput[index] || ""}
+                                    onChange={(e) => setAuthorUrlInput(prev => ({ ...prev, [index]: e.target.value }))}
+                                    placeholder="Paste author profile URL (e.g., /author/abc123)"
+                                    className="flex-1"
+                                  />
                                   <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                      if (author.name) {
-                                        searchAuthors(author.name, index)
-                                      }
-                                    }}
-                                    disabled={!author.name || searchingAuthor[index]}
+                                    onClick={() => linkAuthorByUrl(index)}
+                                    disabled={!authorUrlInput[index] || linkingAuthor[index]}
                                   >
-                                    {searchingAuthor[index] ? (
+                                    {linkingAuthor[index] ? (
                                       <>
                                         <Icons.loader className="mr-2 h-3 w-3 animate-spin" />
-                                        Searching...
+                                        Linking...
                                       </>
                                     ) : (
                                       <>
                                         <Icons.link className="mr-2 h-3 w-3" />
-                                        Link Archivara Account
+                                        Link
                                       </>
                                     )}
                                   </Button>
-
-                                  {authorSearchResults[index]?.length > 0 && (
-                                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                      {authorSearchResults[index].map((searchAuthor) => (
-                                        <button
-                                          key={searchAuthor.id}
-                                          type="button"
-                                          className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
-                                          onClick={() => selectAuthor(index, searchAuthor)}
-                                        >
-                                          <div className="font-medium">{searchAuthor.name}</div>
-                                          {searchAuthor.affiliation && (
-                                            <div className="text-xs text-muted-foreground">{searchAuthor.affiliation}</div>
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Optional: Link to their account for verified authorship
+                                  Paste their author profile URL to link their account
                                 </p>
                               </div>
                             )}
