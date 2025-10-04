@@ -25,7 +25,8 @@ import {
   Flag,
   Plus,
   LogOut,
-  X
+  X,
+  Link
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -115,5 +116,6 @@ export const Icons = {
   flag: Flag,
   plus: Plus,
   logOut: LogOut,
-  x: X
+  x: X,
+  link: Link
 }; 

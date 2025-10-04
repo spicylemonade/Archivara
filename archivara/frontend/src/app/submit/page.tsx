@@ -24,8 +24,8 @@ export default function SubmitPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [authorSearchResults, setAuthorSearchResults] = useState<any[]>([])
-  const [searchingAuthor, setSearchingAuthor] = useState(false)
+  const [authorSearchResults, setAuthorSearchResults] = useState<Record<number, any[]>>({})
+  const [searchingAuthor, setSearchingAuthor] = useState<Record<number, boolean>>({})
 
   const [formData, setFormData] = useState({
     title: "",
@@ -55,11 +55,15 @@ export default function SubmitPage() {
     try {
       const response = await api.get("/auth/me")
       setCurrentUser(response.data)
-      // Set first author as current user
+      // Set first author as current user - use name field specifically
+      const userName = response.data.name && response.data.name !== response.data.email
+        ? response.data.name
+        : response.data.email
+
       setFormData(prev => ({
         ...prev,
         authors: [{
-          name: response.data.name || response.data.email,
+          name: userName,
           email: response.data.email,
           affiliation: response.data.affiliation || "",
           isAI: false
@@ -99,19 +103,19 @@ export default function SubmitPage() {
 
   const searchAuthors = async (query: string, index: number) => {
     if (!query || query.length < 2) {
-      setAuthorSearchResults([])
+      setAuthorSearchResults(prev => ({ ...prev, [index]: [] }))
       return
     }
 
-    setSearchingAuthor(true)
+    setSearchingAuthor(prev => ({ ...prev, [index]: true }))
     try {
       const response = await api.get(`/authors?query=${encodeURIComponent(query)}&limit=10`)
-      setAuthorSearchResults(response.data)
+      setAuthorSearchResults(prev => ({ ...prev, [index]: response.data }))
     } catch (err) {
       console.error("Failed to search authors:", err)
-      setAuthorSearchResults([])
+      setAuthorSearchResults(prev => ({ ...prev, [index]: [] }))
     } finally {
-      setSearchingAuthor(false)
+      setSearchingAuthor(prev => ({ ...prev, [index]: false }))
     }
   }
 
@@ -125,7 +129,18 @@ export default function SubmitPage() {
       author_id: author.id
     }
     setFormData({ ...formData, authors: newAuthors })
-    setAuthorSearchResults([])
+    setAuthorSearchResults(prev => ({ ...prev, [index]: [] }))
+  }
+
+  const unlinkAuthor = (index: number) => {
+    const newAuthors = [...formData.authors]
+    newAuthors[index] = {
+      ...newAuthors[index],
+      email: undefined,
+      affiliation: undefined,
+      author_id: undefined
+    }
+    setFormData({ ...formData, authors: newAuthors })
   }
 
   const toggleCategory = (categoryId: string) => {
@@ -309,7 +324,7 @@ export default function SubmitPage() {
             {currentStep === 2 && (
               <div className="space-y-6">
                 <p className="text-sm text-muted-foreground">
-                  You are automatically listed as the first author. Add co-authors by searching for their Archivara account.
+                  You are automatically listed as the first author. Add co-authors manually, and optionally link their Archivara account.
                 </p>
                 <div className="space-y-4">
                   {formData.authors.map((author, index) => (
@@ -344,44 +359,91 @@ export default function SubmitPage() {
                             </p>
                           </div>
                         ) : (
-                          /* Co-authors - search and link accounts */
+                          /* Co-authors - manual entry with optional link */
                           <div className="space-y-3">
-                            <div className="relative">
-                              <label className="text-sm font-medium">Search by name</label>
+                            <div>
+                              <label className="text-sm font-medium">Name *</label>
                               <Input
                                 value={author.name}
-                                onChange={(e) => {
-                                  handleAuthorChange(index, "name", e.target.value)
-                                  searchAuthors(e.target.value, index)
-                                }}
-                                placeholder="Start typing to search for an author..."
+                                onChange={(e) => handleAuthorChange(index, "name", e.target.value)}
+                                placeholder="Author's full name"
                               />
-                              {searchingAuthor && (
-                                <Icons.loader className="absolute right-3 top-8 h-4 w-4 animate-spin" />
-                              )}
-                              {authorSearchResults.length > 0 && (
-                                <div className="absolute z-10 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                  {authorSearchResults.map((searchAuthor) => (
-                                    <button
-                                      key={searchAuthor.id}
-                                      type="button"
-                                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
-                                      onClick={() => selectAuthor(index, searchAuthor)}
-                                    >
-                                      <div className="font-medium">{searchAuthor.name}</div>
-                                      {searchAuthor.affiliation && (
-                                        <div className="text-xs text-muted-foreground">{searchAuthor.affiliation}</div>
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
                             </div>
 
-                            {author.author_id && (
-                              <div className="flex items-center text-xs text-green-600 dark:text-green-400">
-                                <Icons.checkCircle className="h-3 w-3 mr-1" />
-                                Linked to Archivara account
+                            {author.author_id ? (
+                              /* Show linked account info */
+                              <div className="bg-green-50 dark:bg-green-900/20 rounded-md p-3 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center text-sm text-green-700 dark:text-green-300">
+                                    <Icons.checkCircle className="h-4 w-4 mr-2" />
+                                    <span className="font-medium">Linked to Archivara account</span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => unlinkAuthor(index)}
+                                    className="text-xs"
+                                  >
+                                    Unlink
+                                  </Button>
+                                </div>
+                                {author.email && (
+                                  <p className="text-xs text-muted-foreground">{author.email}</p>
+                                )}
+                                {author.affiliation && (
+                                  <p className="text-xs text-muted-foreground">{author.affiliation}</p>
+                                )}
+                              </div>
+                            ) : (
+                              /* Show link account button and search */
+                              <div className="space-y-2">
+                                <div className="relative">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (author.name) {
+                                        searchAuthors(author.name, index)
+                                      }
+                                    }}
+                                    disabled={!author.name || searchingAuthor[index]}
+                                  >
+                                    {searchingAuthor[index] ? (
+                                      <>
+                                        <Icons.loader className="mr-2 h-3 w-3 animate-spin" />
+                                        Searching...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Icons.link className="mr-2 h-3 w-3" />
+                                        Link Archivara Account
+                                      </>
+                                    )}
+                                  </Button>
+
+                                  {authorSearchResults[index]?.length > 0 && (
+                                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                      {authorSearchResults[index].map((searchAuthor) => (
+                                        <button
+                                          key={searchAuthor.id}
+                                          type="button"
+                                          className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                                          onClick={() => selectAuthor(index, searchAuthor)}
+                                        >
+                                          <div className="font-medium">{searchAuthor.name}</div>
+                                          {searchAuthor.affiliation && (
+                                            <div className="text-xs text-muted-foreground">{searchAuthor.affiliation}</div>
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  Optional: Link to their account for verified authorship
+                                </p>
                               </div>
                             )}
 
