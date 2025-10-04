@@ -1,9 +1,14 @@
 """One-time script to reset database schema"""
 import asyncio
 import os
+
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy import text
+
 from app.db.base_class import Base
+
+# Import models so Base.metadata knows about every table registered with Base
+from app import models  # noqa: F401
 
 async def reset_database():
     """Drop all tables and recreate schema"""
