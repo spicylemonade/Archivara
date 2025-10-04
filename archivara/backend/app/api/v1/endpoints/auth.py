@@ -138,13 +138,36 @@ async def register(
     """Register a new user and send verification email."""
     # Check if user already exists
     result = await db.execute(select(User).where(User.email == user_in.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+    existing_user = result.scalar_one_or_none()
 
-    # Generate verification token
+    if existing_user:
+        # If user exists and is verified, return error
+        if existing_user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # If user exists but is not verified, update their info and resend verification
+        # This allows users to "retry" registration if they didn't get the email
+        verification_token = secrets.token_urlsafe(32)
+        verification_expires = datetime.utcnow() + timedelta(hours=24)
+
+        existing_user.hashed_password = get_password_hash(user_in.password)
+        existing_user.full_name = user_in.full_name
+        existing_user.affiliation = user_in.affiliation
+        existing_user.verification_token = verification_token
+        existing_user.verification_token_expires = verification_expires
+
+        await db.commit()
+        await db.refresh(existing_user)
+
+        # Resend verification email
+        background_tasks.add_task(send_verification_email, existing_user.email, verification_token)
+
+        return existing_user
+
+    # Generate verification token for new user
     verification_token = secrets.token_urlsafe(32)
     verification_expires = datetime.utcnow() + timedelta(hours=24)
 
