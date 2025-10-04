@@ -22,17 +22,12 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown events"""
     # Startup
     logger.info("Starting Archivara API", version=settings.APP_VERSION)
-    
-    # Create database tables
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as e:
-        logger.warning(f"Database connection failed: {e}. Starting without database.")
-        # Continue startup even if database fails
-    
+
+    # Note: Database tables are created via Alembic migrations in start.sh
+    # Do not use Base.metadata.create_all as it bypasses migration tracking
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Archivara API")
     await engine.dispose()
