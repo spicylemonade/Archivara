@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { PaperCard, PaperCardSkeleton } from "@/components/paper-card"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Icons } from "@/components/icons"
 import { papersAPI } from "@/lib/api"
 import { Paper } from "@/types"
 
-export default function BrowsePage() {
+function BrowseContent() {
   const searchParams = useSearchParams()
   const subjectFilter = searchParams.get('subject')
 
@@ -385,4 +385,27 @@ export default function BrowsePage() {
       </div>
     </div>
   )
-} 
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={
+      <div className="container pt-24 pb-8 md:pt-32 md:pb-12">
+        <div className="space-y-8">
+          <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-4 duration-700">
+            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+            <div className="h-10 w-80 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <PaperCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </div>
+    }>
+      <BrowseContent />
+    </Suspense>
+  )
+}
