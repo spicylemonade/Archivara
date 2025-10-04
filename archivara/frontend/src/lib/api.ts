@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const defaultBaseUrl =
+  process.env.NODE_ENV === 'production'
+    ? 'https://archivara-production.up.railway.app/api/v1'
+    : 'http://localhost:8000/api/v1';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || defaultBaseUrl;
 
 // Create axios instance with default config
 export const api = axios.create({
