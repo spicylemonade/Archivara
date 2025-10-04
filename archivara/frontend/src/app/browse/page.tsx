@@ -1,14 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { PaperCard, PaperCardSkeleton } from "@/components/paper-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Icons } from "@/components/icons"
-import { papersAPI, searchAPI } from "@/lib/api"
+import { papersAPI } from "@/lib/api"
 import { Paper } from "@/types"
 
 export default function BrowsePage() {
+  const searchParams = useSearchParams()
+  const subjectFilter = searchParams.get('subject')
+
   const [papers, setPapers] = useState<Paper[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
@@ -21,7 +25,7 @@ export default function BrowsePage() {
   // Load initial papers
   useEffect(() => {
     loadPapers()
-  }, [])
+  }, [subjectFilter])
 
   // Refetch papers when user returns to the page
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function BrowsePage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [searchQuery])
+  }, [searchQuery, subjectFilter])
 
   const loadPapers = async (pageNum = 1, query = "") => {
     try {
@@ -44,23 +48,67 @@ export default function BrowsePage() {
       if (query) setSearchLoading(true)
       setError(null)
 
-      let response
-      if (query.trim()) {
-        // Use semantic search if query provided
-        response = await searchAPI.search(query, { page: pageNum, per_page: 12 })
-      } else {
-        // Load all papers
-        response = await papersAPI.list({ page: pageNum, per_page: 12 })
+      // Load all papers with pagination
+      const response = await papersAPI.list({ page: pageNum, per_page: 12 })
+      let newPapers = response.data.items || []
+
+      // Filter by subject if provided (from collections)
+      if (subjectFilter) {
+        newPapers = newPapers.filter((paper: any) => {
+          const categories = (paper.categories || []).map((c: any) =>
+            typeof c === 'string' ? c.toLowerCase() : c.name?.toLowerCase() || ''
+          ).join(' ')
+
+          // Simple subject matching
+          switch (subjectFilter) {
+            case 'physics':
+              return categories.includes('physics') || categories.includes('quantum') ||
+                     categories.includes('astrophysics') || categories.includes('cosmology')
+            case 'mathematics':
+              return categories.includes('math') || categories.includes('algebra') ||
+                     categories.includes('geometry') || categories.includes('topology')
+            case 'computer-science':
+              return categories.includes('computer') || categories.includes('ai') ||
+                     categories.includes('machine learning') || categories.includes('algorithm')
+            case 'quantitative-biology':
+              return categories.includes('biology') || categories.includes('genomics') ||
+                     categories.includes('bioinformatics')
+            case 'quantitative-finance':
+              return categories.includes('finance') || categories.includes('trading')
+            case 'statistics':
+              return categories.includes('statistics') || categories.includes('statistical')
+            case 'electrical-engineering':
+              return categories.includes('electrical') || categories.includes('signal processing')
+            case 'economics':
+              return categories.includes('econom')
+            default:
+              return true
+          }
+        })
       }
 
-      const newPapers = response.data.papers || response.data.items || []
-      
+      // Filter by search query using simple text matching
+      if (query.trim()) {
+        const queryLower = query.toLowerCase()
+        newPapers = newPapers.filter((paper: any) => {
+          const searchText = [
+            paper.title,
+            paper.abstract,
+            ...(paper.authors || []).map((a: any) => a.name),
+            ...(paper.categories || []).map((c: any) => typeof c === 'string' ? c : c.name),
+            paper.generation_method
+          ].filter(Boolean).join(' ').toLowerCase()
+
+          return searchText.includes(queryLower)
+        })
+      }
+
       if (pageNum === 1) {
         setPapers(newPapers)
       } else {
         setPapers(prev => [...prev, ...newPapers])
       }
-      
+
       setHasMore(newPapers.length === 12) // Assume more if we got a full page
       setPage(pageNum)
     } catch (err: any) {
@@ -217,19 +265,38 @@ export default function BrowsePage() {
     }
   }
 
+  // Get collection title for display
+  const getCollectionTitle = () => {
+    if (!subjectFilter) return "Browse Papers"
+    const titles: Record<string, string> = {
+      'physics': 'Physics Papers',
+      'mathematics': 'Mathematics Papers',
+      'computer-science': 'Computer Science Papers',
+      'quantitative-biology': 'Quantitative Biology Papers',
+      'quantitative-finance': 'Quantitative Finance Papers',
+      'statistics': 'Statistics Papers',
+      'electrical-engineering': 'Electrical Engineering Papers',
+      'economics': 'Economics Papers'
+    }
+    return titles[subjectFilter] || "Browse Papers"
+  }
+
   return (
     <div className="container pt-24 pb-8 md:pt-32 md:pb-12">
       <div className="space-y-8">
         {/* Header with animated entrance */}
         <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-4 duration-700">
-          <h1 className="text-3xl font-bold">Browse Papers</h1>
+          <h1 className="text-3xl font-bold">{getCollectionTitle()}</h1>
           <p className="text-muted-foreground">
-            Explore the full archive of AI-generated research with semantic search.
+            {subjectFilter
+              ? `Showing ${subjectFilter.replace('-', ' ')} papers. Use the search box to filter results.`
+              : "Explore the full archive of AI-generated research."
+            }
           </p>
           <div className="relative max-w-md">
             <Icons.search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search papers semantically..."
+              placeholder="Search by title, abstract, author, or category..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10 bg-card dark:bg-card transition-all focus:ring-2 focus:ring-primary/20"
