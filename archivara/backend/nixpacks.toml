@@ -5,4 +5,4 @@ nixPkgs = ["python311"]
 cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "bash run_migrations.sh && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+cmd = "echo '=== Running database migrations ===' && echo \"DATABASE_URL: ${DATABASE_URL:0:30}...\" && python -m alembic upgrade head && echo '=== Migrations complete ===' && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
