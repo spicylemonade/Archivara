@@ -64,7 +64,13 @@ app.add_middleware(
 # Add trusted host middleware
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.DEBUG else ["archivara.io", "*.archivara.io", "localhost"]
+    allowed_hosts=["*"] if settings.DEBUG else [
+        "archivara.io",
+        "*.archivara.io",
+        "localhost",
+        "*.railway.app",  # Allow Railway domains
+        "*.up.railway.app"  # Allow Railway public domains
+    ]
 )
 
 # Prometheus metrics (disabled - instrumentator not installed)
