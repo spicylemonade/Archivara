@@ -7,12 +7,11 @@ echo "DATABASE_URL: ${DATABASE_URL:0:30}..."
 # ONE-TIME: Reset database to fix schema issues
 if [ "${RESET_DB}" = "true" ]; then
     echo "=== RESET_DB flag set, dropping all tables ==="
-    PSQL_URL=$(echo $DATABASE_URL | sed 's/postgresql+asyncpg/postgresql/')
-    psql "$PSQL_URL" <<EOF
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO PUBLIC;
-EOF
+    python reset_db.py
+    if [ $? -ne 0 ]; then
+        echo "=== Database reset failed ==="
+        exit 1
+    fi
     echo "=== Database reset complete ==="
 fi
 
