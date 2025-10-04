@@ -47,6 +47,19 @@ app.add_middleware(
     secret_key=settings.SECRET_KEY
 )
 
+# Trust Railway proxy headers for HTTPS
+from starlette.middleware.trustedhost import TrustedHostMiddleware as _TrustedHostMiddleware
+from starlette.datastructures import Headers
+
+@app.middleware("http")
+async def trust_railway_proxy(request, call_next):
+    """Trust X-Forwarded-Proto header from Railway proxy"""
+    if "x-forwarded-proto" in request.headers:
+        # Update the request scope to reflect the correct scheme
+        request.scope["scheme"] = request.headers["x-forwarded-proto"]
+    response = await call_next(request)
+    return response
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
