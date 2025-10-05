@@ -23,18 +23,19 @@ export default function BrowsePage() {
   // Try to load cached papers immediately
   const getCachedPapers = () => {
     if (typeof window === 'undefined') return []
-    const cached = sessionStorage.getItem('cached-papers')
-    if (cached) {
-      try {
+    try {
+      const cached = sessionStorage.getItem('cached-papers')
+      if (cached) {
         return JSON.parse(cached)
-      } catch {
-        return []
       }
+    } catch (e) {
+      // Storage access denied or quota exceeded - just skip cache
+      console.warn('[Browse] Cannot access cache:', e);
     }
     return []
   }
 
-  const [papers, setPapers] = useState<Paper[]>(getCachedPapers())
+  const [papers, setPapers] = useState<Paper[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(!getCachedPapers().length) // Don't show loading if we have cached data
   const [searchLoading, setSearchLoading] = useState(false)
@@ -57,27 +58,8 @@ export default function BrowsePage() {
 
   // Load initial papers
   useEffect(() => {
-
-    // Clear any stale session storage on mobile that might be causing quota issues
-    if (typeof window !== 'undefined') {
-      try {
-        // Try to clear storage quota issues
-        const testKey = 'storage-test';
-        sessionStorage.setItem(testKey, 'test');
-        sessionStorage.removeItem(testKey);
-      } catch (e) {
-        console.warn('[Browse] Storage quota issue detected, clearing cache');
-        try {
-          sessionStorage.clear();
-          localStorage.clear();
-        } catch (clearError) {
-          console.error('[Browse] Failed to clear storage:', clearError);
-        }
-      }
-
-      console.log('[Browse] Component mounted');
-      console.log('[Browse] Navigator online:', navigator.onLine);
-    }
+    console.log('[Browse] Component mounted');
+    console.log('[Browse] Navigator online:', typeof navigator !== 'undefined' ? navigator.onLine : 'N/A');
 
     loadPapers()
   }, [subjectFilter])
@@ -98,33 +80,42 @@ export default function BrowsePage() {
   }, [searchQuery, subjectFilter])
 
   const loadPapers = async (pageNum = 1, query = "") => {
+    let apiClient: any = null;
+
     try {
       setLoading(pageNum === 1)
       if (query) setSearchLoading(true)
       setError(null)
 
-      console.log('[Browse] Loading papers...', { pageNum, query, userAgent: navigator.userAgent })
+      console.log('[Browse] Loading papers...', { pageNum, query })
 
       // Create fresh API client directly in the function to avoid state issues
       const baseURL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
         ? 'https://archivara-production.up.railway.app/api/v1'
         : 'http://localhost:8000/api/v1';
 
-      console.log('[Browse] Using API baseURL:', baseURL);
+      console.log('[Browse] Creating axios with baseURL:', baseURL);
 
-      const apiClient = axios.create({
+      apiClient = axios.create({
         baseURL,
         headers: { 'Content-Type': 'application/json' },
         timeout: 30000,
       });
 
-      // Add auth token if available
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (token) {
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('[Browse] Axios instance created, baseURL:', apiClient.defaults.baseURL);
+
+      // Add auth token if available - wrap in try/catch for storage errors
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (token) {
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+      } catch (storageError) {
+        console.warn('[Browse] Cannot access localStorage:', storageError);
       }
 
       // Load all papers with pagination
+      console.log('[Browse] Making GET request to /papers');
       const response = await apiClient.get('/papers', {
         params: { page: pageNum, per_page: 12 }
       })
@@ -186,9 +177,14 @@ export default function BrowsePage() {
 
       if (pageNum === 1) {
         setPapers(newPapers)
-        // Cache papers for faster subsequent loads
+        // Cache papers for faster subsequent loads - skip if storage unavailable
         if (typeof window !== 'undefined' && !query) {
-          sessionStorage.setItem('cached-papers', JSON.stringify(newPapers))
+          try {
+            sessionStorage.setItem('cached-papers', JSON.stringify(newPapers))
+          } catch (e) {
+            // Storage quota exceeded or disabled - just skip caching
+            console.warn('[Browse] Cannot cache papers:', e);
+          }
         }
       } else {
         setPapers(prev => [...prev, ...newPapers])
@@ -200,17 +196,17 @@ export default function BrowsePage() {
       const windowApiDebug = typeof window !== 'undefined' ? (window as any).API_DEBUG : null;
 
       const errorDebug = {
-        message: err.message,
+        message: err.message || 'Unknown error',
         status: err.response?.status || 'No response',
         statusText: err.response?.statusText || 'N/A',
-        responseData: JSON.stringify(err.response?.data || 'No data').substring(0, 100),
+        responseData: err.response?.data ? JSON.stringify(err.response.data).substring(0, 100) : 'No data',
         requestURL: err.config?.url || 'Unknown',
-        baseURL: err.config?.baseURL || 'Unknown',
+        baseURL: err.config?.baseURL || (apiClient?.defaults?.baseURL) || 'Unknown',
         expectedBaseURL: windowApiDebug?.API_BASE_URL || 'Not set',
         method: err.config?.method || 'Unknown',
         isNetworkError: !err.response,
-        userAgent: navigator.userAgent.substring(0, 80),
-        online: navigator.onLine ? 'Yes' : 'No',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 80) : 'N/A',
+        online: typeof navigator !== 'undefined' ? (navigator.onLine ? 'Yes' : 'No') : 'N/A',
         timestamp: new Date().toISOString(),
       };
 
