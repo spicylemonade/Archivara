@@ -55,6 +55,8 @@ export default function BrowsePage() {
 
   // Load initial papers
   useEffect(() => {
+    console.log('[Browse] Component mounted, API_BASE_URL:', typeof window !== 'undefined' ? (window as any).API_BASE_URL : 'server-side')
+    console.log('[Browse] Navigator online:', typeof navigator !== 'undefined' ? navigator.onLine : 'N/A')
     loadPapers()
   }, [subjectFilter])
 
@@ -79,10 +81,15 @@ export default function BrowsePage() {
       if (query) setSearchLoading(true)
       setError(null)
 
+      console.log('[Browse] Loading papers...', { pageNum, query, userAgent: navigator.userAgent })
+
       // Load all papers with pagination - use api.get directly like home page
       const response = await api.get('/papers', {
         params: { page: pageNum, per_page: 12 }
       })
+
+      console.log('[Browse] Papers loaded successfully', { count: response.data.items?.length })
+
       let newPapers = response.data.items || []
 
       // Filter by subject if provided (from collections)
@@ -149,7 +156,21 @@ export default function BrowsePage() {
       setHasMore(newPapers.length === 12) // Assume more if we got a full page
       setPage(pageNum)
     } catch (err: any) {
-      console.error("Error loading papers:", err)
+      console.error('[Browse] Error loading papers:', {
+        error: err,
+        message: err.message,
+        response: err.response,
+        status: err.response?.status,
+        data: err.response?.data,
+        config: {
+          url: err.config?.url,
+          baseURL: err.config?.baseURL,
+          method: err.config?.method,
+        },
+        isNetworkError: !err.response,
+        userAgent: navigator.userAgent,
+        online: navigator.onLine,
+      })
       setError(err.response?.data?.detail || "Failed to load papers")
       
       // Fallback to mock data if backend is not available

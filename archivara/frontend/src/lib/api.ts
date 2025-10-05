@@ -11,13 +11,23 @@ export const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? baseUrl.replace(/^http:/, 'https:')
   : baseUrl;
 
-// Log API URL on client side for debugging
+// Log API URL on client side for debugging and expose to window
 if (typeof window !== 'undefined') {
+  (window as any).API_BASE_URL = API_BASE_URL;
+  (window as any).API_DEBUG = {
+    API_BASE_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    defaultBaseUrl,
+    baseUrl,
+  };
+
   console.log('[API] Using API_BASE_URL:', API_BASE_URL);
   console.log('[API] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   console.log('[API] NODE_ENV:', process.env.NODE_ENV);
   console.log('[API] User Agent:', navigator.userAgent);
   console.log('[API] Window location:', window.location.href);
+  console.log('[API] Full debug info available in window.API_DEBUG');
 }
 
 // Create axios instance with default config
