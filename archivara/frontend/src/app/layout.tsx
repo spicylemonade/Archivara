@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { SiteHeader } from "@/components/site-header"
 import { FaviconUpdater } from "@/components/favicon-updater"
 import { AuthProvider } from "@/lib/auth-context"
+import { Analytics } from "@/components/analytics"
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       >
         <AuthProvider>
           <FaviconUpdater />
+          <Analytics />
           <SiteHeader />
           <main className="snap-container fixed inset-0 pt-24">
             {children}
