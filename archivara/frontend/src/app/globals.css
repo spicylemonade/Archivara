@@ -161,15 +161,24 @@ body {
   }
 
   .snap-container {
-    scroll-snap-type: y mandatory;
     overflow-y: auto;
     height: 100vh;
     scroll-behavior: smooth;
     position: relative;
   }
 
+  /* Enable snap scroll only on desktop (md and above) */
+  @media (min-width: 768px) {
+    .snap-container {
+      scroll-snap-type: y mandatory;
+    }
+
+    .snap-section {
+      scroll-snap-align: start;
+    }
+  }
+
   .snap-section {
-    scroll-snap-align: start;
     min-height: 100vh;
     position: relative;
     display: flex;
