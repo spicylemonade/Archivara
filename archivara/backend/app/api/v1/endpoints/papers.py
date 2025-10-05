@@ -15,7 +15,7 @@ from app.models.paper import Paper, Author, Model, Tool, SubmissionAttempt, Base
 from app.models.user import User
 from app.lib.verification import isVerifiedEmailDomain
 from app.schemas.paper import PaperCreate, PaperResponse, PaperList, PaperUpdate
-from app.services.storage import storage_service, S3StorageService
+from app.services.storage import storage_service
 from app.services.embeddings import embedding_service
 from app.services.moderation import ModerationService
 # from app.services.vector_db import vector_db_service  # TODO: Reimplement vector DB service
@@ -163,12 +163,9 @@ async def submit_paper(
     # Reset file pointer for upload
     pdf_file.file = io.BytesIO(pdf_content)
 
-    # Upload files to S3
-    storage = S3StorageService()
-
+    # Upload files to storage (Supabase)
     # Upload PDF
-    pdf_key = f"papers/{current_user.id}/{datetime.utcnow().isoformat()}-{pdf_file.filename}"
-    pdf_url, pdf_hash = await storage.upload_file(
+    pdf_url, pdf_hash = await storage_service.upload_file(
         pdf_file.file,
         ".pdf",
         folder=f"papers/{current_user.id}"
@@ -178,7 +175,7 @@ async def submit_paper(
     tex_url = None
     tex_hash = None
     if tex_file:
-        tex_url, tex_hash = await storage.upload_file(
+        tex_url, tex_hash = await storage_service.upload_file(
             tex_file.file,
             ".tex",
             folder=f"papers/{current_user.id}"
@@ -527,9 +524,8 @@ async def get_paper_pdf(
         s3_key = s3_key[len(bucket_name)+1:]
 
     # Get file from S3
-    storage = S3StorageService()
     try:
-        file_content = await storage.download_file(s3_key)
+        file_content = await storage_service.download_file(s3_key)
 
         return StreamingResponse(
             io.BytesIO(file_content),

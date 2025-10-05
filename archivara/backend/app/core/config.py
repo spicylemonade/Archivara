@@ -47,12 +47,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     
-    # S3 Storage
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "us-east-1"
-    S3_BUCKET_NAME: str = "archivara-artifacts"
-    S3_ENDPOINT_URL: Optional[str] = None  # For local MinIO
+    # Supabase Storage (simpler than S3)
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
     
     # Vector Database
     QDRANT_HOST: str = "localhost"
