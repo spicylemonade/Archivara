@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Icons } from "@/components/icons"
 import { useSearchParams } from "next/navigation"
-import { api } from "@/lib/api"
+import { api, API_BASE_URL } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 
 function LoginForm() {
@@ -54,8 +54,7 @@ function LoginForm() {
     setIsGoogleLoading(true)
     setError(null)
     // Redirect to backend Google OAuth endpoint
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
-    window.location.href = `${apiUrl}/auth/google/login`
+    window.location.href = `${API_BASE_URL}/auth/google/login`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

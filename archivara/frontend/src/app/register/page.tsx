@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Icons } from "@/components/icons"
-import { api } from "@/lib/api"
+import { api, API_BASE_URL } from "@/lib/api"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -26,8 +26,7 @@ export default function RegisterPage() {
     setIsGoogleLoading(true)
     setError(null)
     // Redirect to backend Google OAuth endpoint
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
-    window.location.href = `${apiUrl}/auth/google/login`
+    window.location.href = `${API_BASE_URL}/auth/google/login`
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
