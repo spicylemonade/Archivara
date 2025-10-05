@@ -70,7 +70,6 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
 
     # Auth0
     AUTH0_DOMAIN: str = ""
@@ -97,6 +96,9 @@ class Settings(BaseSettings):
 
     # Frontend URL (for email verification links)
     FRONTEND_URL: str = "http://localhost:3001"
+
+    # Backend URL (for OAuth callbacks)
+    BACKEND_URL: str = "http://localhost:8000"
 
     # Email Configuration
     RESEND_API_KEY: str = ""  # Resend API key for sending emails

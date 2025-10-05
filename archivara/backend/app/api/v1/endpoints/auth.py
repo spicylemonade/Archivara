@@ -270,7 +270,7 @@ async def verify_email(
 @router.get("/google/login")
 async def google_login(request: Request):
     """Initiate Google OAuth login flow."""
-    redirect_uri = settings.GOOGLE_REDIRECT_URI
+    redirect_uri = f"{settings.BACKEND_URL}/api/v1/auth/google/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
