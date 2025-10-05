@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Icons } from "@/components/icons"
 import { api } from "@/lib/api"
 import { Paper } from "@/types"
+import axios from "axios"
 
 export default function BrowsePage() {
   // Safely get search params without Suspense issues
@@ -43,6 +44,7 @@ export default function BrowsePage() {
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
   const [showSkeleton, setShowSkeleton] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [clientApi, setClientApi] = useState<any>(null)
 
   // Delay showing skeleton to prevent flash
   useEffect(() => {
@@ -54,12 +56,63 @@ export default function BrowsePage() {
     }
   }, [loading])
 
+  // Initialize API client on client side only
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Create fresh API client for this component
+      const baseURL = window.location.hostname === 'localhost'
+        ? 'http://localhost:8000/api/v1'
+        : 'https://archivara-production.up.railway.app/api/v1';
+
+      console.log('[Browse] Creating client-side API with baseURL:', baseURL);
+
+      const freshApi = axios.create({
+        baseURL,
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000,
+      });
+
+      // Add auth interceptor
+      freshApi.interceptors.request.use((config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      });
+
+      setClientApi(freshApi);
+    }
+  }, []);
+
   // Load initial papers
   useEffect(() => {
-    console.log('[Browse] Component mounted, API_BASE_URL:', typeof window !== 'undefined' ? (window as any).API_BASE_URL : 'server-side')
-    console.log('[Browse] Navigator online:', typeof navigator !== 'undefined' ? navigator.onLine : 'N/A')
+    if (!clientApi) return; // Wait for API client to be ready
+
+    // Clear any stale session storage on mobile that might be causing quota issues
+    if (typeof window !== 'undefined') {
+      try {
+        // Try to clear storage quota issues
+        const testKey = 'storage-test';
+        sessionStorage.setItem(testKey, 'test');
+        sessionStorage.removeItem(testKey);
+      } catch (e) {
+        console.warn('[Browse] Storage quota issue detected, clearing cache');
+        try {
+          sessionStorage.clear();
+          localStorage.clear();
+        } catch (clearError) {
+          console.error('[Browse] Failed to clear storage:', clearError);
+        }
+      }
+
+      console.log('[Browse] Component mounted');
+      console.log('[Browse] Using client API:', clientApi?.defaults?.baseURL);
+      console.log('[Browse] Navigator online:', navigator.onLine);
+    }
+
     loadPapers()
-  }, [subjectFilter])
+  }, [subjectFilter, clientApi])
 
   // Refetch papers when user returns to the page
   useEffect(() => {
@@ -84,8 +137,12 @@ export default function BrowsePage() {
 
       console.log('[Browse] Loading papers...', { pageNum, query, userAgent: navigator.userAgent })
 
-      // Load all papers with pagination - use api.get directly like home page
-      const response = await api.get('/papers', {
+      // Use client-side API if available, otherwise fall back to imported api
+      const apiClient = clientApi || api;
+      console.log('[Browse] Using API baseURL:', apiClient.defaults?.baseURL);
+
+      // Load all papers with pagination
+      const response = await apiClient.get('/papers', {
         params: { page: pageNum, per_page: 12 }
       })
 
@@ -157,16 +214,19 @@ export default function BrowsePage() {
       setHasMore(newPapers.length === 12) // Assume more if we got a full page
       setPage(pageNum)
     } catch (err: any) {
+      const windowApiDebug = typeof window !== 'undefined' ? (window as any).API_DEBUG : null;
+
       const errorDebug = {
         message: err.message,
         status: err.response?.status || 'No response',
         statusText: err.response?.statusText || 'N/A',
-        responseData: err.response?.data || 'No data',
+        responseData: JSON.stringify(err.response?.data || 'No data').substring(0, 100),
         requestURL: err.config?.url || 'Unknown',
         baseURL: err.config?.baseURL || 'Unknown',
+        expectedBaseURL: windowApiDebug?.API_BASE_URL || 'Not set',
         method: err.config?.method || 'Unknown',
         isNetworkError: !err.response,
-        userAgent: navigator.userAgent,
+        userAgent: navigator.userAgent.substring(0, 80),
         online: navigator.onLine ? 'Yes' : 'No',
         timestamp: new Date().toISOString(),
       };
@@ -374,14 +434,15 @@ export default function BrowsePage() {
               {debugInfo && (
                 <details className="text-xs text-yellow-700 dark:text-yellow-300">
                   <summary className="cursor-pointer font-semibold">Debug Info (tap to expand)</summary>
-                  <div className="mt-2 space-y-1 font-mono bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded">
+                  <div className="mt-2 space-y-1 font-mono bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded text-[10px]">
                     <div><strong>Error:</strong> {debugInfo.message}</div>
                     <div><strong>Status:</strong> {debugInfo.status}</div>
-                    <div><strong>URL:</strong> {debugInfo.baseURL}{debugInfo.requestURL}</div>
+                    <div><strong>Request URL:</strong> {debugInfo.requestURL}</div>
+                    <div><strong>Base URL:</strong> {debugInfo.baseURL}</div>
+                    <div><strong>Expected URL:</strong> {debugInfo.expectedBaseURL}</div>
                     <div><strong>Network Error:</strong> {debugInfo.isNetworkError ? 'Yes' : 'No'}</div>
                     <div><strong>Online:</strong> {debugInfo.online}</div>
-                    <div><strong>Browser:</strong> {debugInfo.userAgent?.substring(0, 50)}...</div>
-                    <div><strong>Time:</strong> {debugInfo.timestamp}</div>
+                    <div><strong>Browser:</strong> {debugInfo.userAgent}</div>
                   </div>
                 </details>
               )}
