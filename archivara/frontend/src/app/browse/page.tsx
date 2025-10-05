@@ -1,17 +1,23 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import { PaperCard, PaperCardSkeleton } from "@/components/paper-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Icons } from "@/components/icons"
-import { papersAPI } from "@/lib/api"
+import { api } from "@/lib/api"
 import { Paper } from "@/types"
 
-function BrowseContent() {
-  const searchParams = useSearchParams()
-  const subjectFilter = searchParams.get('subject')
+export default function BrowsePage() {
+  // Safely get search params without Suspense issues
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      setSubjectFilter(params.get('subject'))
+    }
+  }, [])
 
   // Try to load cached papers immediately
   const getCachedPapers = () => {
@@ -73,8 +79,10 @@ function BrowseContent() {
       if (query) setSearchLoading(true)
       setError(null)
 
-      // Load all papers with pagination
-      const response = await papersAPI.list({ page: pageNum, per_page: 12 })
+      // Load all papers with pagination - use api.get directly like home page
+      const response = await api.get('/papers', {
+        params: { page: pageNum, per_page: 12 }
+      })
       let newPapers = response.data.items || []
 
       // Filter by subject if provided (from collections)
@@ -413,28 +421,5 @@ function BrowseContent() {
         )}
       </div>
     </div>
-  )
-}
-
-export default function BrowsePage() {
-  return (
-    <Suspense fallback={
-      <div className="container pt-24 pb-8 md:pt-32 md:pb-12">
-        <div className="space-y-8">
-          <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-4 duration-700">
-            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-            <div className="h-4 w-96 bg-muted animate-pulse rounded" />
-            <div className="h-10 w-80 bg-muted animate-pulse rounded" />
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <PaperCardSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      </div>
-    }>
-      <BrowseContent />
-    </Suspense>
   )
 }
