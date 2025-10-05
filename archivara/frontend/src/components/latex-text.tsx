@@ -17,12 +17,12 @@ export function LatexText({ text, className = '', inline = true }: LatexTextProp
     if (!containerRef.current) return
 
     try {
-      // Split text by LaTeX delimiters ($ for inline, $$ for display)
+      // Split text by LaTeX delimiters ($ for inline, $$ for display, \(...\) and \[...\])
       const parts: Array<{ type: 'text' | 'latex'; content: string; display?: boolean }> = []
       let currentIndex = 0
 
-      // Match both $$ and $ delimiters
-      const regex = /\$\$(.*?)\$\$|\$(.*?)\$/gs
+      // Match $$...$$, $...$, \[...\], and \(...\) delimiters
+      const regex = /\$\$(.*?)\$\$|\$(.*?)\$|\\\[(.*?)\\\]|\\\((.*?)\\\)/gs
       let match
 
       while ((match = regex.exec(text)) !== null) {
@@ -38,6 +38,12 @@ export function LatexText({ text, className = '', inline = true }: LatexTextProp
         } else if (match[2] !== undefined) {
           // Inline math ($...$)
           parts.push({ type: 'latex', content: match[2], display: false })
+        } else if (match[3] !== undefined) {
+          // Display math (\[...\])
+          parts.push({ type: 'latex', content: match[3], display: true })
+        } else if (match[4] !== undefined) {
+          // Inline math (\(...\))
+          parts.push({ type: 'latex', content: match[4], display: false })
         }
 
         currentIndex = match.index + match[0].length

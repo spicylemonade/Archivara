@@ -100,15 +100,13 @@ class OpenRouterClient:
         if metadata:
             metadata_str = f"\n\nMetadata: {json.dumps(metadata, indent=2)}"
 
-        prompt = f"""You are an expert academic paper reviewer. Analyze this research paper submission and provide a quality assessment.
+        prompt = f"""You are an expert academic paper reviewer. Analyze this research paper based on its title and abstract.
 
 Title: {title}
 
 Abstract:
 {abstract}
 {metadata_str}
-
-Please also analyze the full PDF document provided to get a complete understanding of the paper's quality.
 
 Rate the paper on a scale of 0-100 based on these criteria:
 1. Abstract quality (clarity, completeness) - 15 points
@@ -138,41 +136,17 @@ Respond ONLY with valid JSON in this exact format:
   "suggestions": ["<suggestion 1>", "<suggestion 2>", ...]
 }}"""
 
-        # Build message content with PDF if available
-        message_content = [{"type": "text", "text": prompt}]
-
-        if pdf_base64:
-            # Add PDF as a file attachment using OpenRouter's native PDF support
-            data_url = f"data:application/pdf;base64,{pdf_base64}"
-            message_content.append({
-                "type": "file",
-                "file": {
-                    "filename": "paper.pdf",
-                    "file_data": data_url
-                }
-            })
-
+        # Build message - only use title and abstract (no PDF to avoid context limits)
         messages = [
             {"role": "system", "content": "You are an academic paper quality assessment expert. Always respond with valid JSON only."},
-            {"role": "user", "content": message_content}
-        ]
-
-        # Configure PDF processing engine (using pdf-text for free processing)
-        plugins = [
-            {
-                "id": "file-parser",
-                "pdf": {
-                    "engine": "pdf-text"  # Free text-based PDF parsing
-                }
-            }
+            {"role": "user", "content": prompt}
         ]
 
         try:
             response = await self.chat_completion(
                 messages=messages,
                 temperature=0.3,  # Lower temp for more consistent scoring
-                max_tokens=1500,
-                plugins=plugins if pdf_base64 else None
+                max_tokens=1500
             )
 
             # Debug: Print full response structure
@@ -225,7 +199,7 @@ Respond ONLY with valid JSON in this exact format:
         pdf_base64: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Detect LLM-generated/babble content using another LLM with native PDF support.
+        Detect LLM-generated/babble content using another LLM.
 
         Returns dict with:
         - is_llm_babble: bool
@@ -235,14 +209,12 @@ Respond ONLY with valid JSON in this exact format:
         """
         prompt = f"""You are an expert at detecting AI-generated academic content that lacks substance (often called "LLM babble").
 
-Analyze this paper for signs of low-quality AI generation:
+Analyze this paper's title and abstract for signs of low-quality AI generation:
 
 Title: {title}
 
 Abstract:
 {abstract}
-
-Please also analyze the full PDF document provided to detect any patterns of low-quality AI generation throughout the paper.
 
 Look for these red flags:
 1. Excessive buzzwords without substance ("delve", "tapestry", "paradigm shift", "nuanced")
