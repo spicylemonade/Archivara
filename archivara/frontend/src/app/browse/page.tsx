@@ -42,6 +42,7 @@ export default function BrowsePage() {
   const [hasMore, setHasMore] = useState(true)
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
   const [showSkeleton, setShowSkeleton] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   // Delay showing skeleton to prevent flash
   useEffect(() => {
@@ -156,21 +157,22 @@ export default function BrowsePage() {
       setHasMore(newPapers.length === 12) // Assume more if we got a full page
       setPage(pageNum)
     } catch (err: any) {
-      console.error('[Browse] Error loading papers:', {
-        error: err,
+      const errorDebug = {
         message: err.message,
-        response: err.response,
-        status: err.response?.status,
-        data: err.response?.data,
-        config: {
-          url: err.config?.url,
-          baseURL: err.config?.baseURL,
-          method: err.config?.method,
-        },
+        status: err.response?.status || 'No response',
+        statusText: err.response?.statusText || 'N/A',
+        responseData: err.response?.data || 'No data',
+        requestURL: err.config?.url || 'Unknown',
+        baseURL: err.config?.baseURL || 'Unknown',
+        method: err.config?.method || 'Unknown',
         isNetworkError: !err.response,
         userAgent: navigator.userAgent,
-        online: navigator.onLine,
-      })
+        online: navigator.onLine ? 'Yes' : 'No',
+        timestamp: new Date().toISOString(),
+      };
+
+      console.error('[Browse] Error loading papers:', errorDebug)
+      setDebugInfo(errorDebug)
       setError(err.response?.data?.detail || "Failed to load papers")
       
       // Fallback to mock data if backend is not available
@@ -364,11 +366,25 @@ export default function BrowsePage() {
             )}
           </div>
           {error && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-              <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 space-y-2">
+              <p className="text-yellow-800 dark:text-yellow-200 text-sm font-semibold">
                 <Icons.alertTriangle className="inline h-4 w-4 mr-1" />
                 Backend unavailable. Showing sample data.
               </p>
+              {debugInfo && (
+                <details className="text-xs text-yellow-700 dark:text-yellow-300">
+                  <summary className="cursor-pointer font-semibold">Debug Info (tap to expand)</summary>
+                  <div className="mt-2 space-y-1 font-mono bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded">
+                    <div><strong>Error:</strong> {debugInfo.message}</div>
+                    <div><strong>Status:</strong> {debugInfo.status}</div>
+                    <div><strong>URL:</strong> {debugInfo.baseURL}{debugInfo.requestURL}</div>
+                    <div><strong>Network Error:</strong> {debugInfo.isNetworkError ? 'Yes' : 'No'}</div>
+                    <div><strong>Online:</strong> {debugInfo.online}</div>
+                    <div><strong>Browser:</strong> {debugInfo.userAgent?.substring(0, 50)}...</div>
+                    <div><strong>Time:</strong> {debugInfo.timestamp}</div>
+                  </div>
+                </details>
+              )}
             </div>
           )}
         </div>
