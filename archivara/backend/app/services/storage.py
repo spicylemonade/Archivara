@@ -14,15 +14,22 @@ logger = structlog.get_logger()
 
 class S3StorageService:
     """Service for handling S3 storage operations"""
-    
+
     def __init__(self):
         self.bucket_name = settings.S3_BUCKET_NAME
-        self.session = aioboto3.Session(
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION
-        )
-        self.endpoint_url = settings.S3_ENDPOINT_URL  # For MinIO in local dev
+        self.enabled = bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY)
+
+        if self.enabled:
+            self.session = aioboto3.Session(
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_REGION
+            )
+            self.endpoint_url = settings.S3_ENDPOINT_URL  # For MinIO in local dev
+        else:
+            self.session = None
+            self.endpoint_url = None
+            logger.warning("S3 storage disabled - AWS credentials not configured")
     
     async def upload_file(
         self,
@@ -32,25 +39,30 @@ class S3StorageService:
     ) -> Tuple[str, str]:
         """
         Upload a file to S3 and return the URL and hash
-        
+
         Args:
             file_content: File content as binary stream
             file_extension: File extension (e.g., '.pdf')
             folder: S3 folder/prefix
-            
+
         Returns:
             Tuple of (file_url, file_hash)
         """
         # Read file content
         content = file_content.read()
         file_content.seek(0)  # Reset for potential re-read
-        
+
         # Calculate hash
         file_hash = hashlib.sha256(content).hexdigest()
-        
+
         # Generate unique filename
         file_key = f"{folder}/{uuid4()}{file_extension}"
-        
+
+        # If S3 is not enabled, return placeholder
+        if not self.enabled:
+            logger.warning("S3 disabled - returning placeholder URL", hash=file_hash)
+            return f"/api/v1/files/{file_key}", file_hash
+
         try:
             async with self.session.client('s3', endpoint_url=self.endpoint_url) as s3:
                 # Upload file with public-read ACL
@@ -72,7 +84,7 @@ class S3StorageService:
 
                 logger.info("File uploaded to S3", key=file_key, hash=file_hash)
                 return file_url, file_hash
-                
+
         except ClientError as e:
             logger.error("Failed to upload file to S3", error=str(e))
             raise
