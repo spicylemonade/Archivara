@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Icons } from "@/components/icons"
 import { formatDistanceToNowStrict } from "date-fns"
-import { papersAPI, moderationAPI } from "@/lib/api"
+import { papersAPI, moderationAPI, API_BASE_URL } from "@/lib/api"
 import {
   Dialog,
   DialogContent,
@@ -602,7 +602,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
                   <Button
                     className="w-full"
                     size="lg"
-                    onClick={() => window.open(`http://localhost:8000/api/v1/papers/${paper.id}/pdf`, '_blank')}
+                    onClick={() => window.open(`${API_BASE_URL}/papers/${paper.id}/pdf`, '_blank')}
                   >
                     <Icons.paper className="mr-2 h-4 w-4" />
                     View PDF
@@ -612,7 +612,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
                     className="w-full"
                     onClick={() => {
                       const link = document.createElement('a')
-                      link.href = `http://localhost:8000/api/v1/papers/${paper.id}/pdf`
+                      link.href = `${API_BASE_URL}/papers/${paper.id}/pdf`
                       link.download = `${paper.arxiv_id || paper.id}.pdf`
                       link.click()
                     }}
