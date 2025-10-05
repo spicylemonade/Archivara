@@ -67,9 +67,19 @@ class OpenRouterClient:
             )
 
             if response.status_code != 200:
-                raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
+                error_detail = response.text
+                print(f"OpenRouter API error: Status {response.status_code}")
+                print(f"Response headers: {response.headers}")
+                print(f"Response body: {error_detail}")
+                raise Exception(f"OpenRouter API error: {response.status_code} - {error_detail}")
 
-            return response.json()
+            response_data = response.json()
+            if not response_data:
+                print("WARNING: Empty response from OpenRouter")
+                print(f"Response status: {response.status_code}")
+                print(f"Response headers: {response.headers}")
+
+            return response_data
 
     async def analyze_paper_quality(
         self,
@@ -165,7 +175,12 @@ Respond ONLY with valid JSON in this exact format:
                 plugins=plugins if pdf_base64 else None
             )
 
+            # Debug: Print full response structure
+            print(f"OpenRouter response keys: {response.keys()}")
+            print(f"Full response: {json.dumps(response, indent=2)[:500]}")
+
             content = response["choices"][0]["message"]["content"].strip()
+            print(f"Extracted content length: {len(content)}")
 
             # Try to extract JSON if wrapped in markdown code blocks
             if content.startswith("```"):
@@ -183,7 +198,8 @@ Respond ONLY with valid JSON in this exact format:
 
         except json.JSONDecodeError as e:
             print(f"Failed to parse LLM response as JSON: {e}")
-            print(f"Raw response: {content}")
+            print(f"Raw response: {content if 'content' in locals() else 'NO CONTENT EXTRACTED'}")
+            print(f"Full API response: {json.dumps(response, indent=2)[:1000] if 'response' in locals() else 'NO RESPONSE'}")
             # Fallback to basic scoring
             return {
                 "quality_score": 50,
