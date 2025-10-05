@@ -20,8 +20,8 @@ export const siteConfig = {
     },
   ],
   links: {
-    twitter: "https://twitter.com/archivara",
-    github: "https://github.com/archivara",
+    twitter: "https://x.com/spicey_lemonade",
+    github: "https://github.com/spicylemonade/Archivara",
     discord: "https://discord.gg/archivara",
   },
 }

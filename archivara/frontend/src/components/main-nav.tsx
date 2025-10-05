@@ -17,13 +17,7 @@ export function MainNav() {
   return (
     <>
       {/* Mobile Logo + Menu */}
-      <div className="flex md:hidden items-center">
-        <Link href="/" className="mr-4 flex items-center space-x-2">
-          <Icons.logo className="h-8 w-8 text-accent" />
-          <span className="font-bold">
-            {siteConfig.name}
-          </span>
-        </Link>
+      <div className="flex md:hidden items-center gap-3">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden">
@@ -87,6 +81,12 @@ export function MainNav() {
             </nav>
           </SheetContent>
         </Sheet>
+        <Link href="/" className="flex items-center space-x-2">
+          <Icons.logo className="h-7 w-7 text-accent" />
+          <span className="font-bold text-sm">
+            {siteConfig.name}
+          </span>
+        </Link>
       </div>
 
       {/* Desktop Nav */}

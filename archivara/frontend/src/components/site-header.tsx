@@ -23,27 +23,37 @@ export function SiteHeader() {
         <header className="rounded-full border border-border bg-background/95 backdrop-blur-md shadow-sm">
           <div className="flex h-14 items-center px-6">
             <MainNav />
-            <div className="flex flex-1 items-center justify-end space-x-4">
-              <nav className="flex items-center space-x-2">
+            <div className="flex flex-1 items-center justify-end space-x-1 sm:space-x-2">
+              <nav className="flex items-center space-x-1 sm:space-x-2">
                 {isAuthenticated ? (
                   <>
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button variant="ghost" size="sm" className="hidden sm:flex" asChild>
                       <Link href="/account">My Account</Link>
                     </Button>
-                    <Button variant="premium" size="sm" asChild>
-                      <Link href="/submit">Submit Paper</Link>
+                    <Button variant="ghost" size="icon" className="sm:hidden" asChild>
+                      <Link href="/account">
+                        <Icons.user className="h-4 w-4" />
+                      </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleLogout}>
+                    <Button variant="premium" size="sm" className="text-xs sm:text-sm px-2 sm:px-4" asChild>
+                      <Link href="/submit"><span className="hidden xs:inline">Submit </span>Paper</Link>
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
                       <Icons.logOut className="h-4 w-4" />
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button variant="ghost" size="sm" className="hidden sm:flex" asChild>
                       <Link href="/login">Login</Link>
                     </Button>
-                    <Button variant="premium" size="sm" asChild>
-                      <Link href="/submit">Submit Paper</Link>
+                    <Button variant="ghost" size="icon" className="sm:hidden" asChild>
+                      <Link href="/login">
+                        <Icons.user className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button variant="premium" size="sm" className="text-xs sm:text-sm px-2 sm:px-4" asChild>
+                      <Link href="/submit"><span className="hidden xs:inline">Submit </span>Paper</Link>
                     </Button>
                   </>
                 )}
