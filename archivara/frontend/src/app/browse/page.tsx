@@ -13,14 +13,39 @@ function BrowseContent() {
   const searchParams = useSearchParams()
   const subjectFilter = searchParams.get('subject')
 
-  const [papers, setPapers] = useState<Paper[]>([])
+  // Try to load cached papers immediately
+  const getCachedPapers = () => {
+    if (typeof window === 'undefined') return []
+    const cached = sessionStorage.getItem('cached-papers')
+    if (cached) {
+      try {
+        return JSON.parse(cached)
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const [papers, setPapers] = useState<Paper[]>(getCachedPapers())
   const [searchQuery, setSearchQuery] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!getCachedPapers().length) // Don't show loading if we have cached data
   const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [showSkeleton, setShowSkeleton] = useState(false)
+
+  // Delay showing skeleton to prevent flash
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => setShowSkeleton(true), 200)
+      return () => clearTimeout(timer)
+    } else {
+      setShowSkeleton(false)
+    }
+  }, [loading])
 
   // Load initial papers
   useEffect(() => {
@@ -105,6 +130,10 @@ function BrowseContent() {
 
       if (pageNum === 1) {
         setPapers(newPapers)
+        // Cache papers for faster subsequent loads
+        if (typeof window !== 'undefined' && !query) {
+          sessionStorage.setItem('cached-papers', JSON.stringify(newPapers))
+        }
       } else {
         setPapers(prev => [...prev, ...newPapers])
       }
@@ -316,11 +345,11 @@ function BrowseContent() {
         </div>
 
         {/* Papers grid with staggered animation */}
-        {loading && papers.length === 0 ? (
+        {showSkeleton && papers.length === 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
