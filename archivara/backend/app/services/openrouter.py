@@ -28,7 +28,7 @@ class OpenRouterClient:
         self,
         messages: List[Dict],
         temperature: float = 0.7,
-        max_tokens: int = 2000,
+        max_tokens: Optional[int] = None,
         plugins: Optional[List[Dict]] = None,
         **kwargs
     ) -> Dict[str, Any]:
@@ -38,7 +38,7 @@ class OpenRouterClient:
         Args:
             messages: List of message dicts with 'role' and 'content'
             temperature: Sampling temperature (0-1)
-            max_tokens: Maximum tokens to generate
+            max_tokens: Maximum tokens to generate (optional, omit for unlimited)
             plugins: Optional list of plugin configurations (e.g., for PDF processing)
             **kwargs: Additional model parameters
 
@@ -52,9 +52,11 @@ class OpenRouterClient:
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
             **kwargs
         }
+
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
 
         if plugins:
             payload["plugins"] = plugins
@@ -168,7 +170,6 @@ Respond ONLY with valid JSON in this exact format:
             response = await self.chat_completion(
                 messages=messages,
                 temperature=0.3,  # Lower temp for more consistent scoring
-                max_tokens=1500,
                 plugins=plugins
             )
 
@@ -289,7 +290,6 @@ Respond ONLY with valid JSON in this exact format:
             response = await self.chat_completion(
                 messages=messages,
                 temperature=0.2,  # Low temp for consistent detection
-                max_tokens=1000,
                 plugins=plugins if pdf_base64 else None
             )
 
@@ -374,8 +374,7 @@ Respond ONLY with valid JSON:
         try:
             response = await self.chat_completion(
                 messages=messages,
-                temperature=0.1,
-                max_tokens=500
+                temperature=0.1
             )
 
             content = response["choices"][0]["message"]["content"].strip()
