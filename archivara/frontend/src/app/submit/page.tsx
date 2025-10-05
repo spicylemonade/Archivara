@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Icons } from "@/components/icons"
-import { api } from "@/lib/api"
+import { api, API_BASE_URL } from "@/lib/api"
 import { subjects } from "@/config/subjects"
+import axios from "axios"
 
 interface Author {
   name: string
@@ -204,8 +205,12 @@ export default function SubmitPage() {
       if (formData.pdf_file) submitData.append("pdf_file", formData.pdf_file)
       if (formData.tex_file) submitData.append("tex_file", formData.tex_file)
 
-      const response = await api.post("/papers/submit", submitData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const token = localStorage.getItem("token")
+      const response = await axios.post(`${API_BASE_URL}/papers/submit`, submitData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         timeout: SUBMISSION_TIMEOUT_MS,
       })
 
