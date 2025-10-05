@@ -247,19 +247,28 @@ export default function PaperPage({ params }: { params: { id: string } }) {
   }
 
   const handleVote = async (vote: number) => {
-    try {
-      const newVote = myVote === vote ? 0 : vote
-      const response = await moderationAPI.vote(params.id, newVote)
-      setMyVote(newVote)
+    const newVote = myVote === vote ? 0 : vote
+    const oldVote = myVote
+    const oldNetVotes = netVotes
 
+    // Optimistic update - instant UI feedback
+    const voteDiff = newVote - myVote
+    setMyVote(newVote)
+    setNetVotes(netVotes + voteDiff)
+
+    try {
+      const response = await moderationAPI.vote(params.id, newVote)
+
+      // Update with actual server values
       const newNetVotes = response.data.net_votes || 0
       setNetVotes(newNetVotes)
 
       // Update the paper object with new vote counts
       if (paper) {
-        const voteDiff = newVote - myVote
-        const newUpvotes = (paper.community_upvotes || 0) + (voteDiff > 0 ? voteDiff : 0)
-        const newDownvotes = (paper.community_downvotes || 0) + (voteDiff < 0 ? Math.abs(voteDiff) : 0)
+        const upvotesDiff = voteDiff > 0 ? voteDiff : 0
+        const downvotesDiff = voteDiff < 0 ? Math.abs(voteDiff) : 0
+        const newUpvotes = (paper.community_upvotes || 0) + upvotesDiff
+        const newDownvotes = (paper.community_downvotes || 0) + downvotesDiff
 
         setPaper({
           ...paper,
@@ -268,9 +277,15 @@ export default function PaperPage({ params }: { params: { id: string } }) {
         })
       }
     } catch (err: any) {
+      // Rollback on error
+      setMyVote(oldVote)
+      setNetVotes(oldNetVotes)
+
       console.error('Failed to vote:', err)
       if (err.response?.status === 401) {
         alert('Please sign in to vote')
+      } else {
+        alert('Failed to record vote. Please try again.')
       }
     }
   }

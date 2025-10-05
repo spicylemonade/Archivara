@@ -128,7 +128,7 @@ async def vote_on_paper(
             paper.community_downvotes += 1
 
     # Recalculate visibility tier based on new votes
-    mod_service = ModerationService(db)
+    mod_service = ModerationService(db, use_llm=False)  # Skip LLM for faster voting
     paper.visibility_tier = await mod_service.assign_visibility_tier(paper)
 
     await db.commit()
