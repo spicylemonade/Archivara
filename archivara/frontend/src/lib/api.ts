@@ -1,15 +1,26 @@
 import axios from 'axios';
 
-const defaultBaseUrl =
-  process.env.NODE_ENV === 'production'
-    ? 'https://archivara-production.up.railway.app/api/v1'
-    : 'http://localhost:8000/api/v1';
+// Determine API base URL
+const getApiBaseUrl = () => {
+  // In production, always use HTTPS
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return 'https://archivara-production.up.railway.app/api/v1';
+  }
 
-// Ensure we always use HTTPS in production (but allow HTTP in dev)
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || defaultBaseUrl;
-export const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? baseUrl.replace(/^http:/, 'https:')
-  : baseUrl;
+  const defaultBaseUrl =
+    process.env.NODE_ENV === 'production'
+      ? 'https://archivara-production.up.railway.app/api/v1'
+      : 'http://localhost:8000/api/v1';
+
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || defaultBaseUrl;
+
+  // Ensure we always use HTTPS in production
+  return process.env.NODE_ENV === 'production'
+    ? baseUrl.replace(/^http:/, 'https:')
+    : baseUrl;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 // Log API URL on client side for debugging and expose to window
 if (typeof window !== 'undefined') {
@@ -18,25 +29,40 @@ if (typeof window !== 'undefined') {
     API_BASE_URL,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NODE_ENV: process.env.NODE_ENV,
-    defaultBaseUrl,
-    baseUrl,
+    hostname: window.location.hostname,
   };
 
   console.log('[API] Using API_BASE_URL:', API_BASE_URL);
   console.log('[API] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   console.log('[API] NODE_ENV:', process.env.NODE_ENV);
+  console.log('[API] Hostname:', window.location.hostname);
   console.log('[API] User Agent:', navigator.userAgent);
   console.log('[API] Window location:', window.location.href);
   console.log('[API] Full debug info available in window.API_DEBUG');
 }
 
 // Create axios instance with default config
-export const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Using a function to ensure proper initialization on all devices
+const createApiClient = () => {
+  const baseURL = API_BASE_URL;
+
+  if (!baseURL || baseURL === 'undefined' || baseURL.includes('undefined')) {
+    console.error('[API] Invalid baseURL detected:', baseURL);
+    throw new Error('API_BASE_URL is not properly configured');
+  }
+
+  console.log('[API] Creating axios instance with baseURL:', baseURL);
+
+  return axios.create({
+    baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000, // 30 second timeout
+  });
+};
+
+export const api = createApiClient();
 
 // Add auth token to requests if available
 api.interceptors.request.use((config) => {
