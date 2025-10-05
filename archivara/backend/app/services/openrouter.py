@@ -19,7 +19,7 @@ class OpenRouterClient:
         self.model = model or settings.OPENROUTER_MODEL
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": "https://archivara.com",  # Update with your domain
+            "HTTP-Referer": "https://archivara.org",
             "X-Title": "Archivara Moderation System",
             "Content-Type": "application/json"
         }

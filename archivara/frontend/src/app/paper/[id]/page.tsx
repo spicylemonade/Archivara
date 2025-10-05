@@ -69,7 +69,7 @@ const MOCK_PAPER = {
 }
 
 export default function PaperPage({ params }: { params: { id: string } }) {
-  const [paper, setPaper] = useState(MOCK_PAPER)
+  const [paper, setPaper] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("abstract")
@@ -90,6 +90,19 @@ export default function PaperPage({ params }: { params: { id: string } }) {
       setError(null)
 
       console.log("Loading paper with ID:", params.id)  // Debug log
+
+      // Try cache first
+      const cachedPaper = sessionStorage.getItem(`paper-${params.id}`)
+      if (cachedPaper) {
+        try {
+          const parsed = JSON.parse(cachedPaper)
+          setPaper(parsed)
+          setLoading(false)
+          // Still fetch in background to update cache
+        } catch (e) {
+          console.error('Failed to parse cached paper:', e)
+        }
+      }
 
       // Try API first
       try {
@@ -137,6 +150,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
         }
 
         setPaper(paperData)
+        sessionStorage.setItem(`paper-${params.id}`, JSON.stringify(paperData))
         return
       } catch (apiErr: any) {
         console.error("API error:", apiErr)
@@ -312,6 +326,46 @@ export default function PaperPage({ params }: { params: { id: string } }) {
     }
   }
 
+  if (loading && !paper) {
+    return (
+      <div className="container max-w-5xl pt-24 pb-12 md:pt-32 md:pb-24">
+        <Link
+          href="/browse"
+          className="inline-flex items-center text-accent hover:underline text-sm mb-8"
+        >
+          <Icons.arrowLeft className="mr-1 h-4 w-4" />
+          Back to browse
+        </Link>
+        <div className="space-y-6">
+          <div className="h-12 w-3/4 animate-pulse rounded-md bg-muted" />
+          <div className="h-6 w-1/2 animate-pulse rounded-md bg-muted" />
+          <div className="space-y-2">
+            <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
+            <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
+            <div className="h-4 w-5/6 animate-pulse rounded-md bg-muted" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!paper) {
+    return (
+      <div className="container max-w-5xl pt-24 pb-12 md:pt-32 md:pb-24">
+        <Link
+          href="/browse"
+          className="inline-flex items-center text-accent hover:underline text-sm mb-8"
+        >
+          <Icons.arrowLeft className="mr-1 h-4 w-4" />
+          Back to browse
+        </Link>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Paper not found</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container max-w-5xl pt-24 pb-12 md:pt-32 md:pb-24">
       <Link
@@ -321,7 +375,7 @@ export default function PaperPage({ params }: { params: { id: string } }) {
         <Icons.arrowLeft className="mr-1 h-4 w-4" />
         Back to browse
       </Link>
-      
+
       <div className="grid gap-12 lg:grid-cols-[1fr_300px]">
         <div className="space-y-8">
           {/* Header */}
