@@ -44,7 +44,6 @@ export default function BrowsePage() {
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
   const [showSkeleton, setShowSkeleton] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [clientApi, setClientApi] = useState<any>(null)
 
   // Delay showing skeleton to prevent flash
   useEffect(() => {
@@ -56,38 +55,8 @@ export default function BrowsePage() {
     }
   }, [loading])
 
-  // Initialize API client on client side only
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Create fresh API client for this component
-      const baseURL = window.location.hostname === 'localhost'
-        ? 'http://localhost:8000/api/v1'
-        : 'https://archivara-production.up.railway.app/api/v1';
-
-      console.log('[Browse] Creating client-side API with baseURL:', baseURL);
-
-      const freshApi = axios.create({
-        baseURL,
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 30000,
-      });
-
-      // Add auth interceptor
-      freshApi.interceptors.request.use((config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      });
-
-      setClientApi(freshApi);
-    }
-  }, []);
-
   // Load initial papers
   useEffect(() => {
-    if (!clientApi) return; // Wait for API client to be ready
 
     // Clear any stale session storage on mobile that might be causing quota issues
     if (typeof window !== 'undefined') {
@@ -107,12 +76,11 @@ export default function BrowsePage() {
       }
 
       console.log('[Browse] Component mounted');
-      console.log('[Browse] Using client API:', clientApi?.defaults?.baseURL);
       console.log('[Browse] Navigator online:', navigator.onLine);
     }
 
     loadPapers()
-  }, [subjectFilter, clientApi])
+  }, [subjectFilter])
 
   // Refetch papers when user returns to the page
   useEffect(() => {
@@ -137,9 +105,24 @@ export default function BrowsePage() {
 
       console.log('[Browse] Loading papers...', { pageNum, query, userAgent: navigator.userAgent })
 
-      // Use client-side API if available, otherwise fall back to imported api
-      const apiClient = clientApi || api;
-      console.log('[Browse] Using API baseURL:', apiClient.defaults?.baseURL);
+      // Create fresh API client directly in the function to avoid state issues
+      const baseURL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+        ? 'https://archivara-production.up.railway.app/api/v1'
+        : 'http://localhost:8000/api/v1';
+
+      console.log('[Browse] Using API baseURL:', baseURL);
+
+      const apiClient = axios.create({
+        baseURL,
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000,
+      });
+
+      // Add auth token if available
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (token) {
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
 
       // Load all papers with pagination
       const response = await apiClient.get('/papers', {
