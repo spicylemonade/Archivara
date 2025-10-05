@@ -1,48 +1,131 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { PaperCard, PaperCardSkeleton } from "@/components/paper-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Icons } from "@/components/icons"
-import { api } from "@/lib/api"
 import { Paper } from "@/types"
 import axios from "axios"
 
+const BROWSE_CACHE_PREFIX = "browse-papers"
+const BROWSE_CACHE_VERSION = "v1"
+const BROWSE_CACHE_TTL_MS = 5 * 60 * 1000
+
+type BrowseCacheEntry = {
+  timestamp: number
+  papers: Paper[]
+  hasMore: boolean
+  page: number
+}
+
+const getCacheKey = (subject: string | null) =>
+  `${BROWSE_CACHE_PREFIX}:${BROWSE_CACHE_VERSION}:${subject ?? "all"}`
+
+const readCache = (subject: string | null): BrowseCacheEntry | null => {
+  if (typeof window === "undefined") return null
+
+  const key = getCacheKey(subject)
+
+  try {
+    let raw = sessionStorage.getItem(key)
+
+    if (!raw) {
+      const legacy = sessionStorage.getItem("cached-papers")
+      if (legacy) {
+        sessionStorage.removeItem("cached-papers")
+        raw = JSON.stringify({
+          timestamp: Date.now(),
+          papers: JSON.parse(legacy),
+          hasMore: true,
+          page: 1,
+        })
+        sessionStorage.setItem(key, raw)
+      }
+    }
+
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as Partial<BrowseCacheEntry>
+    if (!parsed || typeof parsed.timestamp !== "number" || !Array.isArray(parsed.papers)) {
+      return null
+    }
+
+    if (Date.now() - parsed.timestamp > BROWSE_CACHE_TTL_MS) {
+      sessionStorage.removeItem(key)
+      return null
+    }
+
+    return {
+      timestamp: parsed.timestamp,
+      papers: parsed.papers as Paper[],
+      hasMore: parsed.hasMore ?? true,
+      page: parsed.page ?? 1,
+    }
+  } catch (error) {
+    console.warn("[Browse] Cannot read cache:", error)
+    return null
+  }
+}
+
+const writeCache = (
+  subject: string | null,
+  payload: { papers: Paper[]; hasMore: boolean; page: number }
+) => {
+  if (typeof window === "undefined") return
+
+  const key = getCacheKey(subject)
+
+  try {
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        timestamp: Date.now(),
+        papers: payload.papers,
+        hasMore: payload.hasMore,
+        page: payload.page,
+      })
+    )
+  } catch (error) {
+    console.warn("[Browse] Cannot write cache:", error)
+  }
+}
+
+const getInitialSubject = () => {
+  if (typeof window === "undefined") return null
+  return new URLSearchParams(window.location.search).get("subject")
+}
+
 export default function BrowsePage() {
   // Safely get search params without Suspense issues
-  const [subjectFilter, setSubjectFilter] = useState<string | null>(null)
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(getInitialSubject)
+
+  const initialCacheRef = useRef<BrowseCacheEntry | null>(
+    typeof window !== "undefined" ? readCache(getInitialSubject()) : null
+  )
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      setSubjectFilter(params.get('subject'))
+    if (typeof window === 'undefined') return
+
+    const handleUrlChange = () => {
+      setSubjectFilter(new URLSearchParams(window.location.search).get('subject'))
+    }
+
+    window.addEventListener('popstate', handleUrlChange)
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange)
     }
   }, [])
 
-  // Try to load cached papers immediately
-  const getCachedPapers = () => {
-    if (typeof window === 'undefined') return []
-    try {
-      const cached = sessionStorage.getItem('cached-papers')
-      if (cached) {
-        return JSON.parse(cached)
-      }
-    } catch (e) {
-      // Storage access denied or quota exceeded - just skip cache
-      console.warn('[Browse] Cannot access cache:', e);
-    }
-    return []
-  }
-
-  const [papers, setPapers] = useState<Paper[]>([])
+  const [papers, setPapers] = useState<Paper[]>(() => initialCacheRef.current?.papers ?? [])
   const [searchQuery, setSearchQuery] = useState("")
-  const [loading, setLoading] = useState(!getCachedPapers().length) // Don't show loading if we have cached data
+  const [loading, setLoading] = useState(() => !initialCacheRef.current)
   const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [page, setPage] = useState(() => initialCacheRef.current?.page ?? 1)
+  const [hasMore, setHasMore] = useState(() => initialCacheRef.current?.hasMore ?? true)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showSkeleton, setShowSkeleton] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
 
@@ -56,12 +139,23 @@ export default function BrowsePage() {
     }
   }, [loading])
 
-  // Load initial papers
+  // Hydrate from cache on mount / subject change
   useEffect(() => {
-    console.log('[Browse] Component mounted');
-    console.log('[Browse] Navigator online:', typeof navigator !== 'undefined' ? navigator.onLine : 'N/A');
+    const cached = readCache(subjectFilter)
 
-    loadPapers()
+    if (cached) {
+      setPapers(cached.papers)
+      setHasMore(cached.hasMore)
+      setPage(cached.page)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
+    loadPapers(1, "", {
+      useCache: !cached,
+      background: Boolean(cached),
+    })
   }, [subjectFilter])
 
   // Refetch papers when user returns to the page
@@ -69,7 +163,7 @@ export default function BrowsePage() {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         // Page is now visible, refetch papers
-        loadPapers(1, searchQuery)
+        loadPapers(1, searchQuery, { background: true })
       }
     }
 
@@ -79,12 +173,42 @@ export default function BrowsePage() {
     }
   }, [searchQuery, subjectFilter])
 
-  const loadPapers = async (pageNum = 1, query = "") => {
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [])
+
+  const loadPapers = async (
+    pageNum = 1,
+    query = "",
+    options: { useCache?: boolean; background?: boolean } = {}
+  ) => {
     let apiClient: any = null;
 
     try {
-      setLoading(pageNum === 1)
-      if (query) setSearchLoading(true)
+      const isInitialPage = pageNum === 1
+      const { useCache: useCacheOption, background } = options
+      const shouldUseCache = useCacheOption && !query
+
+      if (shouldUseCache) {
+        const cached = readCache(subjectFilter)
+        if (cached) {
+          setPapers(cached.papers)
+          setHasMore(cached.hasMore)
+          setPage(cached.page)
+          setLoading(false)
+          setSearchLoading(false)
+          return
+        }
+      }
+
+      if (!background) {
+        setLoading(isInitialPage)
+        if (query) setSearchLoading(true)
+      }
       setError(null)
 
       console.log('[Browse] Loading papers...', { pageNum, query })
@@ -177,14 +301,12 @@ export default function BrowsePage() {
 
       if (pageNum === 1) {
         setPapers(newPapers)
-        // Cache papers for faster subsequent loads - skip if storage unavailable
-        if (typeof window !== 'undefined' && !query) {
-          try {
-            sessionStorage.setItem('cached-papers', JSON.stringify(newPapers))
-          } catch (e) {
-            // Storage quota exceeded or disabled - just skip caching
-            console.warn('[Browse] Cannot cache papers:', e);
-          }
+        if (!query) {
+          writeCache(subjectFilter, {
+            papers: newPapers,
+            hasMore: newPapers.length === 12,
+            page: 1,
+          })
         }
       } else {
         setPapers(prev => [...prev, ...newPapers])
@@ -335,32 +457,37 @@ export default function BrowsePage() {
         console.log("Final papers to show:", mockPapers.length, mockPapers.map(p => p.title)) // Debug log
         setPapers(mockPapers)
         setHasMore(false)
+        if (!query) {
+          writeCache(subjectFilter, {
+            papers: mockPapers,
+            hasMore: false,
+            page: 1,
+          })
+        }
       }
     } finally {
-      setLoading(false)
-      setSearchLoading(false)
+      if (!options.background) {
+        setLoading(false)
+        setSearchLoading(false)
+      }
     }
   }
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
     
-    // Clear existing timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout)
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
     }
-    
-    // Set new timeout for debounced search
-    const timeout = setTimeout(() => {
-      loadPapers(1, value)
+
+    searchDebounceRef.current = setTimeout(() => {
+      loadPapers(1, value, { useCache: false })
     }, 500)
-    
-    setSearchTimeout(timeout)
   }
 
   const loadMore = () => {
     if (!loading && hasMore) {
-      loadPapers(page + 1, searchQuery)
+      loadPapers(page + 1, searchQuery, { useCache: false })
     }
   }
 
