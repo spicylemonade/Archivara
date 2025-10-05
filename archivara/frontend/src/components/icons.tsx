@@ -28,7 +28,8 @@ import {
   X,
   Link,
   Menu,
-  User
+  User,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -121,5 +122,6 @@ export const Icons = {
   x: X,
   link: Link,
   menu: Menu,
-  user: User
+  user: User,
+  alertTriangle: AlertTriangle
 }; 

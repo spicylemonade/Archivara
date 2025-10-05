@@ -5,7 +5,11 @@ const defaultBaseUrl =
     ? 'https://archivara-production.up.railway.app/api/v1'
     : 'http://localhost:8000/api/v1';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || defaultBaseUrl;
+// Ensure we always use HTTPS in production (but allow HTTP in dev)
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || defaultBaseUrl;
+export const API_BASE_URL = process.env.NODE_ENV === 'production'
+  ? baseUrl.replace(/^http:/, 'https:')
+  : baseUrl;
 
 // Log API URL on client side for debugging
 if (typeof window !== 'undefined') {
