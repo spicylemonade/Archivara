@@ -12,7 +12,7 @@ class SupabaseStorageService:
     """Service for handling Supabase Storage operations"""
 
     def __init__(self):
-        self.bucket_name = "papers"
+        self.bucket_name = "Papers"  # Capital P to match Supabase bucket
         self.enabled = bool(settings.SUPABASE_URL and settings.SUPABASE_SERVICE_KEY)
 
         if self.enabled:
