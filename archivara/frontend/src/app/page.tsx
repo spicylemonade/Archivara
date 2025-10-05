@@ -12,8 +12,22 @@ import Link from "next/link"
 import { api } from "@/lib/api"
 
 export default function HomePage() {
-  const [topPapers, setTopPapers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  // Try to load cached papers immediately
+  const getCachedPapers = () => {
+    if (typeof window === 'undefined') return []
+    const cached = sessionStorage.getItem('home-top-papers')
+    if (cached) {
+      try {
+        return JSON.parse(cached)
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const [topPapers, setTopPapers] = useState<any[]>(getCachedPapers())
+  const [loading, setLoading] = useState(!getCachedPapers().length)
 
   useEffect(() => {
     loadTopPapers()
@@ -21,7 +35,10 @@ export default function HomePage() {
 
   const loadTopPapers = async () => {
     try {
-      setLoading(true)
+      // Don't show loading if we have cached data
+      if (!getCachedPapers().length) {
+        setLoading(true)
+      }
 
       // Calculate date 2 weeks ago
       const twoWeeksAgo = new Date()
@@ -51,6 +68,11 @@ export default function HomePage() {
         .slice(0, 3)
 
       setTopPapers(recentPapers)
+
+      // Cache papers for faster subsequent loads
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('home-top-papers', JSON.stringify(recentPapers))
+      }
     } catch (err) {
       console.error('Failed to load top papers:', err)
     } finally {

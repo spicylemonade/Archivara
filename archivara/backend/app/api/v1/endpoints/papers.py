@@ -21,7 +21,7 @@ from app.services.moderation import ModerationService
 # from app.services.vector_db import vector_db_service  # TODO: Reimplement vector DB service
 from app.core.config import settings
 from app.api.v1.endpoints.auth import get_current_user
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 from urllib.parse import urlparse
 
 router = APIRouter()
@@ -505,7 +505,7 @@ async def get_paper_pdf(
     paper_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Serve paper PDF through backend (proxy for S3)"""
+    """Redirect to paper PDF (Supabase public URL or direct URL)"""
     # Get paper
     query = select(Paper).where(Paper.id == paper_id)
     result = await db.execute(query)
@@ -514,25 +514,5 @@ async def get_paper_pdf(
     if not paper or not paper.pdf_url:
         raise HTTPException(status_code=404, detail="PDF not found")
 
-    # Extract S3 key from URL
-    parsed_url = urlparse(paper.pdf_url)
-    s3_key = parsed_url.path.lstrip('/')
-
-    # Remove bucket name from key if present
-    bucket_name = settings.S3_BUCKET_NAME
-    if s3_key.startswith(f"{bucket_name}/"):
-        s3_key = s3_key[len(bucket_name)+1:]
-
-    # Get file from S3
-    try:
-        file_content = await storage_service.download_file(s3_key)
-
-        return StreamingResponse(
-            io.BytesIO(file_content),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'inline; filename="{paper.arxiv_id or paper.id}.pdf"'
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Failed to retrieve PDF: {str(e)}") 
+    # Supabase URLs are public, just redirect
+    return RedirectResponse(url=paper.pdf_url, status_code=307) 
