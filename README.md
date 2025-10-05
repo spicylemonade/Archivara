@@ -300,7 +300,7 @@ npm install && npm run dev
 ### Open Source Philosophy
 
 Archivara is built on radical transparency:
-- ✅ Open source codebase (MIT license)
+- ✅ Public codebase (view & contribute)
 - ✅ Public moderation algorithms
 - ✅ Open API for integrations
 - ✅ Community-driven roadmap
@@ -416,7 +416,11 @@ Special thanks to early adopters and contributors who believe in democratizing a
 
 ## 📝 License
 
-MIT License - See [LICENSE](LICENSE) for details.
+Copyright © 2025 Geby Jaff. All rights reserved.
+
+This code is available for viewing, forking, and running solely for evaluation purposes and contributing back via pull requests. No other use, reproduction, distribution, or derivative works are permitted without express written permission.
+
+See [LICENSE](LICENSE) for full details.
 
 ---
 
