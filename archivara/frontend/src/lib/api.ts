@@ -16,6 +16,8 @@ if (typeof window !== 'undefined') {
   console.log('[API] Using API_BASE_URL:', API_BASE_URL);
   console.log('[API] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   console.log('[API] NODE_ENV:', process.env.NODE_ENV);
+  console.log('[API] User Agent:', navigator.userAgent);
+  console.log('[API] Window location:', window.location.href);
 }
 
 // Create axios instance with default config
@@ -35,10 +37,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle auth errors
+// Handle auth errors and log all errors for debugging
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Enhanced error logging for mobile debugging
+    console.error('[API Error]', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      headers: error.config?.headers
+    });
+
     if (error.response?.status === 401) {
       // Clear invalid token but don't redirect
       // Pages can handle auth requirements individually

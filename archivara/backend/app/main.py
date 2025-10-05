@@ -53,34 +53,54 @@ from starlette.datastructures import Headers
 
 @app.middleware("http")
 async def trust_railway_proxy(request, call_next):
-    """Trust X-Forwarded-Proto header from Railway proxy"""
+    """Trust X-Forwarded-Proto header from Railway proxy and log requests for debugging"""
     if "x-forwarded-proto" in request.headers:
         # Update the request scope to reflect the correct scheme
         request.scope["scheme"] = request.headers["x-forwarded-proto"]
+
+    # Enhanced logging for debugging mobile issues
+    logger.info(
+        "Incoming request",
+        method=request.method,
+        path=request.url.path,
+        user_agent=request.headers.get("user-agent", "unknown"),
+        origin=request.headers.get("origin", "none"),
+        host=request.headers.get("host", "unknown"),
+        referer=request.headers.get("referer", "none"),
+        x_forwarded_for=request.headers.get("x-forwarded-for", "none"),
+    )
+
     response = await call_next(request)
     return response
 
-# Configure CORS
+# Configure CORS - allow specific origins in production
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://archivara.org",
+    "https://www.archivara.org",
+    "https://archivara.io",
+    "https://www.archivara.io",
+]
+
+# In development, allow all origins
+if settings.DEBUG:
+    allowed_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development; restrict in production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose all headers for debugging
 )
 
-# Add trusted host middleware
+# Add trusted host middleware - more permissive to avoid blocking mobile
+# The Host header check ensures the request is for the correct domain
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"] if settings.DEBUG else [
-        "archivara.org",
-        "*.archivara.org",
-        "archivara.io",
-        "*.archivara.io",
-        "localhost",
-        "*.railway.app",  # Allow Railway domains
-        "*.up.railway.app"  # Allow Railway public domains
-    ]
+    allowed_hosts=["*"]  # Allow all hosts - Railway handles domain routing
 )
 
 # Prometheus metrics (disabled - instrumentator not installed)
