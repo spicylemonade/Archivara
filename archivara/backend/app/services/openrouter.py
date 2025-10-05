@@ -100,13 +100,15 @@ class OpenRouterClient:
         if metadata:
             metadata_str = f"\n\nMetadata: {json.dumps(metadata, indent=2)}"
 
-        prompt = f"""You are an expert academic paper reviewer. Analyze this research paper based on its title and abstract.
+        prompt = f"""You are an expert academic paper reviewer. Analyze this research paper thoroughly.
 
 Title: {title}
 
 Abstract:
 {abstract}
 {metadata_str}
+
+Please analyze the full PDF document provided to get a complete understanding of the paper's quality.
 
 Rate the paper on a scale of 0-100 based on these criteria:
 1. Abstract quality (clarity, completeness) - 15 points
@@ -136,17 +138,38 @@ Respond ONLY with valid JSON in this exact format:
   "suggestions": ["<suggestion 1>", "<suggestion 2>", ...]
 }}"""
 
-        # Build message - only use title and abstract (no PDF to avoid context limits)
+        # Build message with PDF if available
+        message_content = [{"type": "text", "text": prompt}]
+
+        if pdf_base64:
+            data_url = f"data:application/pdf;base64,{pdf_base64}"
+            message_content.append({
+                "type": "file",
+                "file": {
+                    "filename": "paper.pdf",
+                    "file_data": data_url
+                }
+            })
+
         messages = [
             {"role": "system", "content": "You are an academic paper quality assessment expert. Always respond with valid JSON only."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": message_content if pdf_base64 else prompt}
         ]
+
+        # Use native engine for GPT-5 PDF support
+        plugins = None
+        if pdf_base64:
+            plugins = [{
+                "id": "file-parser",
+                "pdf": {"engine": "native"}
+            }]
 
         try:
             response = await self.chat_completion(
                 messages=messages,
                 temperature=0.3,  # Lower temp for more consistent scoring
-                max_tokens=1500
+                max_tokens=1500,
+                plugins=plugins
             )
 
             # Debug: Print full response structure
@@ -209,12 +232,14 @@ Respond ONLY with valid JSON in this exact format:
         """
         prompt = f"""You are an expert at detecting AI-generated academic content that lacks substance (often called "LLM babble").
 
-Analyze this paper's title and abstract for signs of low-quality AI generation:
+Analyze this paper for signs of low-quality AI generation:
 
 Title: {title}
 
 Abstract:
 {abstract}
+
+Please also analyze the full PDF document provided to detect any patterns throughout the paper.
 
 Look for these red flags:
 1. Excessive buzzwords without substance ("delve", "tapestry", "paradigm shift", "nuanced")
@@ -252,15 +277,13 @@ Respond ONLY with valid JSON in this exact format:
             {"role": "user", "content": message_content}
         ]
 
-        # Configure PDF processing
-        plugins = [
-            {
+        # Use native engine for GPT-5 PDF support
+        plugins = None
+        if pdf_base64:
+            plugins = [{
                 "id": "file-parser",
-                "pdf": {
-                    "engine": "pdf-text"
-                }
-            }
-        ]
+                "pdf": {"engine": "native"}
+            }]
 
         try:
             response = await self.chat_completion(
