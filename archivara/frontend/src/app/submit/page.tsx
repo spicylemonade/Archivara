@@ -18,6 +18,8 @@ interface Author {
   author_id?: string  // For linked accounts
 }
 
+const SUBMISSION_TIMEOUT_MS = 6 * 60 * 1000
+
 export default function SubmitPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
@@ -204,6 +206,7 @@ export default function SubmitPage() {
 
       const response = await api.post("/papers/submit", submitData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: SUBMISSION_TIMEOUT_MS,
       })
 
       // Redirect to success page or paper page
